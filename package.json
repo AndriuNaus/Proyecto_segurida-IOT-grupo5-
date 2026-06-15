@@ -1,0 +1,32 @@
+{
+  "name": "proyecto-iot-camara",
+  "version": "1.0.0",
+  "description": "Sistema de seguridad IoT con ESP32-CAM, JWT, Socket.io y Express",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon --exec tsx src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "keywords": [
+    "iot",
+    "esp32-cam",
+    "express",
+    "socket.io",
+    "jwt"
+  ],
+  "author": "Anderson Bustos",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.16.1",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.3",
+    "nodemon": "^3.1.14",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
