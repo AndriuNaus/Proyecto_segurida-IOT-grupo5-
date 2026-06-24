@@ -1,0 +1,157 @@
+openapi: "3.1.0"
+info:
+  title: "Sistema de Seguridad IoT - ESP32-CAM API"
+  version: "1.0.0"
+  description: "API REST para controlar y monitorear el flujo de video y estado del dispositivo ESP32-CAM con autenticación JWT."
+  license:
+    name: "MIT"
+
+servers:
+  - url: http://localhost:3000
+    description: "Servidor de Desarrollo Local"
+
+paths:
+  /api/auth/login:
+    post:
+      operationId: loginUsuario
+      summary: Iniciar sesión para obtener un token JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: "admin"
+                  description: "Nombre de usuario único para ingresar."
+                password:
+                  type: string
+                  minLength: 6
+                  example: "admin123"
+                  description: "Clave de acceso."
+      responses:
+        '200':
+          description: Autenticación exitosa. Retorna el token.
+          content:
+            application/json:
+              example:
+                message: "Autenticación exitosa"
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '400':
+          description: Datos de entrada inválidos.
+          content:
+            application/json:
+              example:
+                error: 'El campo "password" es requerido y debe tener al menos 6 caracteres.'
+        '401':
+          description: Credenciales inválidas.
+          content:
+            application/json:
+              example:
+                error: "Credenciales inválidas"
+
+  /api/camera/status:
+    get:
+      operationId: obtenerEstadoCamara
+      summary: Obtener el estado y configuración actual de la cámara
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Retorna el estado e información de conectividad.
+          content:
+            application/json:
+              example:
+                status: "success"
+                data:
+                  isConnected: false
+                  lastActivity: "2026-06-29T22:15:00.000Z"
+                  config:
+                    resolution: "VGA"
+                    streamQuality: 30
+                    motionDetection: false
+                    esp32CamUrl: "http://192.168.1.100:81/stream"
+                  userSession:
+                    sub: "admin"
+                    role: "admin"
+        '401':
+          description: Token ausente, inválido o expirado.
+          content:
+            application/json:
+              example:
+                error: "Token expirado"
+
+  /api/camera/configure:
+    post:
+      operationId: configurarCamara
+      summary: Modificar parámetros de captura y funcionamiento de la ESP32-CAM
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigCamara'
+            example:
+              resolution: "UXGA"
+              streamQuality: 15
+              motionDetection: true
+              esp32CamUrl: "http://192.168.1.150:81/stream"
+      responses:
+        '200':
+          description: Configuración guardada e inicio de reconexión del stream.
+          content:
+            application/json:
+              example:
+                message: "Configuración actualizada exitosamente"
+                config:
+                  resolution: "UXGA"
+                  streamQuality: 15
+                  motionDetection: true
+                  esp32CamUrl: "http://192.168.1.150:81/stream"
+        '400':
+          description: Algún parámetro de configuración no cumple las reglas de validación.
+          content:
+            application/json:
+              example:
+                error: "Calidad de stream inválida. Debe ser un número entre 10 y 63 (factor JPEG)."
+        '401':
+          description: Token JWT inválido o ausente.
+        '403':
+          description: Rol insuficiente para modificar configuración.
+          content:
+            application/json:
+              example:
+                error: "Permisos insuficientes. Se requiere rol de administrador."
+
+components:
+  schemas:
+    ConfigCamara:
+      type: object
+      properties:
+        resolution:
+          type: string
+          enum: [QVGA, VGA, SVGA, UXGA]
+          description: "Resolución de captura de imagen."
+        streamQuality:
+          type: integer
+          minimum: 10
+          maximum: 63
+          description: "Calidad del stream de video en factor JPEG (menor es mejor)."
+        motionDetection:
+          type: boolean
+          description: "Activa o desactiva la detección de movimiento por software."
+        esp32CamUrl:
+          type: string
+          format: uri
+          description: "La URL HTTP o IP del stream nativo de la ESP32-CAM."
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
