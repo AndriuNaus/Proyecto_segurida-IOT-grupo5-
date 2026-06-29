@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IoT Security - ESP32-CAM Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    .indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .indicator-online {
+      background-color: #10b981;
+      box-shadow: 0 0 10px #10b981;
+    }
+    .indicator-offline {
+      background-color: #ef4444;
+      box-shadow: 0 0 10px #ef4444;
+    }
+    .video-container {
+      background-color: #020617;
+      min-height: 350px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .btn-primary {
+      background-color: #3b82f6;
+      border: none;
+    }
+    .btn-primary:hover {
+      background-color: #2563eb;
+    }
+    .btn-logout {
+      background-color: transparent;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #ef4444;
+    }
+    .btn-logout:hover {
+      background-color: #ef4444;
+      color: white;
+    }
+    #loginSection {
+      max-width: 420px;
+      margin-top: 10vh;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sección de Login -->
+  <div id="loginSection" class="container mx-auto p-4">
+    <div class="card glass-card p-4">
+      <div class="text-center mb-4">
+        <h3 class="fw-bold text-primary">Iniciar Sesión</h3>
+        <p class="text-muted small">Panel de Seguridad IoT ESP32-CAM</p>
+      </div>
+      <div id="loginError" class="alert alert-danger d-none" role="alert"></div>
+      <form id="loginForm">
+        <div class="mb-3">
+          <label for="username" class="form-label">Usuario</label>
+          <input type="text" class="form-control bg-dark text-white border-secondary" id="username" value="admin" required>
+        </div>
+        <div class="mb-3">
+          <label for="password" class="form-label">Contraseña</label>
+          <input type="password" class="form-control bg-dark text-white border-secondary" id="password" value="admin123" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Ingresar</button>
+      </form>
+      <div class="text-center mt-3 small text-muted">
+        Credenciales demo: <code>admin</code> / <code>admin123</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Principal -->
+  <div id="dashboardSection" class="container py-5 d-none">
+    <!-- Navbar del Dashboard -->
+    <div class="row align-items-center mb-4 pb-3 border-bottom border-secondary">
+      <div class="col-md-6 col-8">
+        <h2 class="fw-bold mb-0">Dashboard de Seguridad</h2>
+        <span class="text-muted small">Control Remoto de Dispositivo ESP32-CAM</span>
+      </div>
+      <div class="col-md-6 col-4 text-end">
+        <button id="logoutBtn" class="btn btn-logout px-3 py-2 fw-semibold">Cerrar Sesión</button>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <!-- Panel de Video -->
+      <div class="col-lg-7 col-12">
+        <div class="card glass-card p-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="fw-bold mb-0">Monitoreo en Vivo</h4>
+            <div class="d-flex align-items-center gap-2">
+              <span id="camStatusIndicator" class="indicator indicator-offline"></span>
+              <span id="camStatusText" class="small fw-semibold text-muted">Desconectado</span>
+            </div>
+          </div>
+          <div class="video-container">
+            <img id="videoStream" src="" class="img-fluid rounded w-100" style="object-fit: contain; max-height: 450px;" alt="Esperando flujo de video desde el servidor proxy...">
+          </div>
+          <p class="text-center text-muted small mt-2">
+            El stream se proxy-retransmite en tiempo real desde el backend mediante Socket.io.
+          </p>
+        </div>
+      </div>
+
+      <!-- Panel de Configuración -->
+      <div class="col-lg-5 col-12">
+        <div class="card glass-card p-4 h-100">
+          <h4 class="fw-bold mb-4">Configuración del Dispositivo</h4>
+          <div id="configSuccess" class="alert alert-success d-none" role="alert">Configuración guardada.</div>
+          <div id="configError" class="alert alert-danger d-none" role="alert"></div>
+          
+          <form id="configForm">
+            <div class="mb-3">
+              <label for="esp32CamUrl" class="form-label">URL del Stream ESP32-CAM</label>
+              <input type="url" class="form-control bg-dark text-white border-secondary" id="esp32CamUrl" required>
+              <div class="form-text text-muted">Ejemplo: <code>http://192.168.1.100:81/stream</code></div>
+            </div>
+
+            <div class="mb-3">
+              <label for="resolution" class="form-label">Resolución de Imagen</label>
+              <select class="form-select bg-dark text-white border-secondary" id="resolution">
+                <option value="QVGA">QVGA (320x240)</option>
+                <option value="VGA">VGA (640x480)</option>
+                <option value="SVGA">SVGA (800x600)</option>
+                <option value="UXGA">UXGA (1600x1200)</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label for="streamQuality" class="form-label">Calidad JPEG (Compresión)</label>
+              <input type="number" class="form-control bg-dark text-white border-secondary" id="streamQuality" min="10" max="63">
+              <div class="form-text text-muted">Rango: 10 (Calidad Alta) a 63 (Calidad Baja).</div>
+            </div>
+
+            <div class="mb-4">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="motionDetection">
+                <label class="form-check-label fw-semibold" for="motionDetection">Activar Detección de Movimiento</label>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Guardar y Reconectar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    let token = localStorage.getItem('jwt_token');
+    
+    const loginSection = document.getElementById('loginSection');
+    const dashboardSection = document.getElementById('dashboardSection');
+    const loginForm = document.getElementById('loginForm');
+    const loginError = document.getElementById('loginError');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    const configForm = document.getElementById('configForm');
+    const configSuccess = document.getElementById('configSuccess');
+    const configError = document.getElementById('configError');
+    
+    const esp32CamUrlInput = document.getElementById('esp32CamUrl');
+    const resolutionSelect = document.getElementById('resolution');
+    const streamQualityInput = document.getElementById('streamQuality');
+    const motionDetectionCheck = document.getElementById('motionDetection');
+    
+    const camStatusIndicator = document.getElementById('camStatusIndicator');
+    const camStatusText = document.getElementById('camStatusText');
+    const videoElement = document.getElementById('videoStream');
+
+    let socket;
+
+    // Verificar sesión inicial
+    if (token) {
+      mostrarDashboard();
+    }
+
+    // Proceso de Login
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginError.classList.add('d-none');
+      
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+          throw new Error(data.error || 'Fallo en autenticación');
+        }
+
+        token = data.token;
+        localStorage.setItem('jwt_token', token);
+        mostrarDashboard();
+      } catch (err) {
+        loginError.innerText = err.message;
+        loginError.classList.remove('d-none');
+      }
+    });
+
+    // Proceso de Logout
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('jwt_token');
+      token = null;
+      if (socket) socket.disconnect();
+      dashboardSection.classList.add('d-none');
+      loginSection.classList.remove('d-none');
+      videoElement.src = '';
+    });
+
+    // Mostrar Dashboard e inicializar WebSocket
+    async function mostrarDashboard() {
+      loginSection.classList.add('d-none');
+      dashboardSection.classList.remove('d-none');
+      
+      // Conectar WebSocket de Video (Socket.io)
+      socket = io();
+      socket.on('video_frame', (base64Data) => {
+        videoElement.src = 'data:image/jpeg;base64,' + base64Data;
+      });
+
+      // Cargar configuración de la cámara en los inputs
+      await cargarConfiguracion();
+
+      // Poll de estado de conexión de la cámara cada 5 segundos
+      setInterval(actualizarEstadoCamara, 5000);
+      actualizarEstadoCamara();
+    }
+
+    // Consultar el estado del backend (GET con JWT)
+    async function cargarConfiguracion() {
+      try {
+        const res = await fetch('/api/camera/status', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401) {
+          logoutBtn.click(); // Token expirado/invalido
+          return;
+        }
+        const data = await res.json();
+        if (data.status === 'success') {
+          const config = data.data.config;
+          esp32CamUrlInput.value = config.esp32CamUrl;
+          resolutionSelect.value = config.resolution;
+          streamQualityInput.value = config.streamQuality;
+          motionDetectionCheck.checked = config.motionDetection;
+          
+          actualizarUIEstado(data.data.isConnected);
+        }
+      } catch (err) {
+        console.error('Error cargando config:', err);
+      }
+    }
+
+    async function actualizarEstadoCamara() {
+      if (!token) return;
+      try {
+        const res = await fetch('/api/camera/status', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401) {
+          logoutBtn.click();
+          return;
+        }
+        const data = await res.json();
+        if (data.status === 'success') {
+          actualizarUIEstado(data.data.isConnected);
+        }
+      } catch (err) {
+        actualizarUIEstado(false);
+      }
+    }
+
+    function actualizarUIEstado(isConnected) {
+      if (isConnected) {
+        camStatusIndicator.className = 'indicator indicator-online';
+        camStatusText.innerText = 'En Línea';
+        camStatusText.className = 'small fw-semibold text-success';
+      } else {
+        camStatusIndicator.className = 'indicator indicator-offline';
+        camStatusText.innerText = 'Buscando ESP32-CAM...';
+        camStatusText.className = 'small fw-semibold text-danger';
+        // Limpiar frame si no hay conexión activa
+        videoElement.src = '';
+      }
+    }
+
+    // Modificar Configuración (POST con JWT)
+    configForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      configSuccess.classList.add('d-none');
+      configError.classList.add('d-none');
+
+      const payload = {
+        esp32CamUrl: esp32CamUrlInput.value,
+        resolution: resolutionSelect.value,
+        streamQuality: parseInt(streamQualityInput.value),
+        motionDetection: motionDetectionCheck.checked
+      };
+
+      try {
+        const res = await fetch('/api/camera/configure', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Error configurando la cámara');
+        }
+
+        configSuccess.classList.remove('d-none');
+        actualizarEstadoCamara();
+      } catch (err) {
+        configError.innerText = err.message;
+        configError.classList.remove('d-none');
+      }
+    });
+  </script>
+</body>
+</html>
