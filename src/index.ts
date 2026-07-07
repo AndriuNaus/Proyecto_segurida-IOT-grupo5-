@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import axios from 'axios';
+import path from 'path';
 import { requestLogger } from './middlewares/logger.js';
 import { rateLimiter } from './middlewares/rateLimiter.js';
 import { requireJwt } from './middlewares/auth.js';
@@ -30,6 +31,11 @@ app.use('/api/auth', authRoutes);
 
 // Rutas Privadas (Protegidas por JWT)
 app.use('/api/camera', requireJwt, cameraRoutes);
+
+// Fallback para React Router (SPA) - sirve index.html para rutas no-API
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.resolve('public', 'index.html'));
+});
 
 // Manejo de errores global
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
