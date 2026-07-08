@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -5,10 +6,10 @@ import axios from 'axios';
 import path from 'path';
 import { requestLogger } from './middlewares/logger.js';
 import { rateLimiter } from './middlewares/rateLimiter.js';
-import { requireJwt } from './middlewares/auth.js';
-import authRoutes from './routes/auth.js';
-import cameraRoutes, { cameraState, loadCameraConfigFromDb } from './routes/camera.js';
-import { initializeDatabase } from './db.js';
+import mainRouter from './routes/index.js';
+import { initializeDatabase } from './config/database.js';
+import { cameraState, CameraService } from './services/camera.service.js';
+import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -27,22 +28,16 @@ app.use(rateLimiter);
 // Archivos estáticos de la interfaz web
 app.use(express.static('public'));
 
-// Rutas Públicas
-app.use('/api/auth', authRoutes);
-
-// Rutas Privadas (Protegidas por JWT)
-app.use('/api/camera', requireJwt, cameraRoutes);
+// Enrutador Principal de la API (unificado y ordenado)
+app.use('/api', mainRouter);
 
 // Fallback para React Router (SPA) - sirve index.html para rutas no-API
 app.get(/^(?!\/api).*/, (req, res) => {
   res.sendFile(path.resolve('public', 'index.html'));
 });
 
-// Manejo de errores global
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Error no controlado:', err.stack);
-  res.status(500).json({ error: 'Error interno en el servidor' });
-});
+// Manejo de errores global (incluye formateador de Zod a 422)
+app.use(errorHandler);
 
 // Proxy de video ESP32-CAM a Socket.io
 let streamAbortController: AbortController | null = null;
@@ -110,15 +105,15 @@ function intentarReconexion() {
 // Inicializar base de datos y luego arrancar servicios
 initializeDatabase()
   .then(async () => {
-    await loadCameraConfigFromDb();
+    await CameraService.loadCameraConfigFromDb();
     iniciarProxyVideo();
   })
   .catch((err) => {
-    console.error('Error al inicializar la base de datos MariaDB:', err.message);
+    console.error('Error al inicializar la base de datos MySQL/MariaDB:', err.message);
     iniciarProxyVideo();
   });
 
-// Escuchar cambios de URL para reconectar el stream inmediatamente
+// Escuchar cambios de URL para reconectar el stream inmediatamente al actualizar configuración
 app.post('/api/camera/configure', (_req, res, next) => {
   // Dejamos que Express ejecute la ruta de configuración primero, y después reiniciamos el stream.
   res.on('finish', () => {

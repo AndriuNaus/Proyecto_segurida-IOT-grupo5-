@@ -1,4 +1,4 @@
-// Definición de las rutas principales del sistema de seguridad
+  // Definición de las rutas principales del sistema de seguridad
 import { Routes, Route } from "react-router-dom";
 import LoginPage from "../pages/Login";
 import RegisterPage from "../pages/Register";
