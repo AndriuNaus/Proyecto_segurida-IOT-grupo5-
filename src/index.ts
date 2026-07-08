@@ -7,7 +7,8 @@ import { requestLogger } from './middlewares/logger.js';
 import { rateLimiter } from './middlewares/rateLimiter.js';
 import { requireJwt } from './middlewares/auth.js';
 import authRoutes from './routes/auth.js';
-import cameraRoutes, { cameraState } from './routes/camera.js';
+import cameraRoutes, { cameraState, loadCameraConfigFromDb } from './routes/camera.js';
+import { initializeDatabase } from './db.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -106,8 +107,16 @@ function intentarReconexion() {
   }, 5000);
 }
 
-// Iniciar el proxy al arrancar
-iniciarProxyVideo();
+// Inicializar base de datos y luego arrancar servicios
+initializeDatabase()
+  .then(async () => {
+    await loadCameraConfigFromDb();
+    iniciarProxyVideo();
+  })
+  .catch((err) => {
+    console.error('Error al inicializar la base de datos MariaDB:', err.message);
+    iniciarProxyVideo();
+  });
 
 // Escuchar cambios de URL para reconectar el stream inmediatamente
 app.post('/api/camera/configure', (_req, res, next) => {

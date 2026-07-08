@@ -1,9 +1,10 @@
 import { Router, type Response } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/auth.js';
+import { query } from '../db.js';
 
 const router = Router();
 
-// Estado simulado en memoria para la cámara ESP32-CAM
+// Estado simulado en memoria para la cámara ESP32-CAM (sincronizado con la base de datos)
 export const cameraState = {
   isConnected: false,
   lastActivity: new Date(),
@@ -14,6 +15,24 @@ export const cameraState = {
     esp32CamUrl: process.env.ESP32_CAM_URL ?? 'http://192.168.1.100:81/stream'
   }
 };
+
+// Función para cargar configuración desde la BD
+export async function loadCameraConfigFromDb() {
+  try {
+    const rows = await query("SELECT resolution, stream_quality as streamQuality, motion_detection as motionDetection, esp32_cam_url as esp32CamUrl FROM camera_config WHERE id = 1");
+    if (rows && rows.length > 0) {
+      cameraState.config = {
+        resolution: rows[0].resolution,
+        streamQuality: Number(rows[0].streamQuality),
+        motionDetection: Boolean(rows[0].motionDetection),
+        esp32CamUrl: rows[0].esp32CamUrl
+      };
+      console.log("Configuración de cámara cargada desde la base de datos:", cameraState.config);
+    }
+  } catch (err: any) {
+    console.error("Error al cargar configuración de cámara desde la BD:", err.message);
+  }
+}
 
 const VALID_RESOLUTIONS = ['QVGA', 'VGA', 'SVGA', 'UXGA'];
 
@@ -39,7 +58,7 @@ router.get('/status', (req: AuthenticatedRequest, res: Response) => {
  * @desc Modificar los parámetros de streaming y seguridad de la cámara
  * @access Privado (Requiere JWT, rol admin)
  */
-router.post('/configure', (req: AuthenticatedRequest, res: Response) => {
+router.post('/configure', async (req: AuthenticatedRequest, res: Response) => {
   // Solo los administradores pueden cambiar la configuración
   if (req.user?.role !== 'admin') {
     res.status(403).json({ error: 'Permisos insuficientes. Se requiere rol de administrador.' });
@@ -90,6 +109,23 @@ router.post('/configure', (req: AuthenticatedRequest, res: Response) => {
       return;
     }
     cameraState.config.esp32CamUrl = esp32CamUrl;
+  }
+
+  try {
+    // Persistir en la base de datos
+    await query(
+      "UPDATE camera_config SET resolution = ?, stream_quality = ?, motion_detection = ?, esp32_cam_url = ? WHERE id = 1",
+      [
+        cameraState.config.resolution,
+        cameraState.config.streamQuality,
+        cameraState.config.motionDetection ? 1 : 0,
+        cameraState.config.esp32CamUrl
+      ]
+    );
+    console.log("Configuración de cámara guardada en la base de datos.");
+  } catch (err: any) {
+    console.error("Error al persistir la configuración en la base de datos:", err.message);
+    // Continuamos para no bloquear al usuario si la base de datos falla temporalmente
   }
 
   cameraState.lastActivity = new Date();

@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { createHmac, randomUUID } from 'crypto';
+import { query } from '../db.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET ?? 'secreto-super-seguro-clase-iot';
@@ -32,7 +33,7 @@ function generateToken(username: string, role: string): string {
  * @route POST /api/auth/login
  * @desc Iniciar sesión y obtener un JWT
  */
-router.post('/login', (req: Request, res: Response) => {
+router.post('/login', async (req: Request, res: Response) => {
   const { username, password } = req.body;
 
   // Validación de Entradas
@@ -46,31 +47,29 @@ router.post('/login', (req: Request, res: Response) => {
     return;
   }
 
-  // Credenciales estáticas de prueba (en producción usar base de datos)
-  if (username === 'admin' && password === 'admin123') {
-    const token = generateToken(username, 'admin');
-    res.status(200).json({
-      message: 'Autenticación exitosa',
-      token
-    });
-    return;
-  }
+  try {
+    // Buscar usuario en la base de datos
+    const rows = await query("SELECT username, password, role FROM users WHERE username = ?", [username]);
+    
+    if (rows && rows.length > 0) {
+      const user = rows[0];
+      
+      // Validar contraseña
+      if (user.password === password) {
+        const token = generateToken(user.username, user.role);
+        res.status(200).json({
+          message: 'Autenticación exitosa',
+          token
+        });
+        return;
+      }
+    }
 
-  if (username === 'anyella' && password === '1234') {
-    const token = generateToken(username, 'admin');
-    res.status(200).json({
-      message: 'Autenticación exitosa',
-      token
-    });
-    return;
+    res.status(401).json({ error: 'Credenciales inválidas' });
+  } catch (err: any) {
+    console.error("Error en login:", err.message);
+    res.status(500).json({ error: 'Error interno en el servidor' });
   }
-
-  // Para pruebas/demo: cualquier otro usuario se loguea con rol 'user'
-  const token = generateToken(username, 'user');
-  res.status(200).json({
-    message: 'Autenticación exitosa',
-    token
-  });
 });
 
 export default router;
