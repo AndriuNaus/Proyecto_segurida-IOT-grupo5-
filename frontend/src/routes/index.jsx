@@ -4,6 +4,7 @@ import LoginPage from "../pages/Login";
 import RegisterPage from "../pages/Register";
 import LandiPage from "../pages/user/Landing";
 import DashboardPage from "../pages/Dashboard";
+import LiveStreamPage from "../pages/LiveStream";
 
 /**
  * AppRoutes - Administrador de rutas con React Router
@@ -20,6 +21,9 @@ function AppRoutes() {
       
       {/* Ruta para el panel de control y monitoreo */}
       <Route path="dashboard" element={<DashboardPage />} />
+
+      {/* Ruta para ver el stream en vivo a pantalla completa */}
+      <Route path="live" element={<LiveStreamPage />} />
       
       {/* Ruta raíz para la landing page */}
       <Route path="/" element={<LandiPage />} />

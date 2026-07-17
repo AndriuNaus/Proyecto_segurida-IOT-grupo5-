@@ -1,7 +1,7 @@
 import type { Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/auth.js';
 import { ConfigureCameraSchema } from '../schemas/camera.schema.js';
-import { CameraService } from '../services/camera.service.js';
+import { CameraService, streamClients } from '../services/camera.service.js';
 
 export const CameraController = {
   /**
@@ -41,5 +41,22 @@ export const CameraController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  /**
+   * Transmite el stream MJPEG directamente desde la ESP32-CAM al cliente.
+   */
+  async stream(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    res.setHeader('Content-Type', 'multipart/x-mixed-replace;boundary=123456789000000000000987654321');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    // Registrar el cliente HTTP para recibir los chunks de video del stream principal
+    streamClients.add(res);
+
+    req.on('close', () => {
+      streamClients.delete(res);
+    });
   }
 };

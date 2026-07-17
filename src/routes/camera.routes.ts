@@ -9,4 +9,7 @@ router.get('/status', CameraController.getStatus);
 // POST /api/camera/configure
 router.post('/configure', CameraController.configure);
 
+// GET /api/camera/stream
+router.get('/stream', CameraController.stream);
+
 export default router;

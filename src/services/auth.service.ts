@@ -1,5 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
-import { UserRepository } from '../repositories/user.repository.js';
+import { UserRepository, type UserRow } from '../repositories/user.repository.js';
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'secreto-super-seguro-clase-iot';
 
@@ -45,6 +45,24 @@ export const AuthService = {
     if (user.password !== password) return null;
 
     return this.generateToken(user.username, user.role);
+  },
+
+  /**
+   * Registra un nuevo usuario en el sistema.
+   * Lanza un error si el usuario ya existe.
+   */
+  async register(userData: Omit<UserRow, 'id'>): Promise<void> {
+    const existingUser = await UserRepository.findByUsername(userData.username);
+    if (existingUser) {
+      throw new Error('El correo electrónico ya se encuentra registrado.');
+    }
+    if (userData.telefono) {
+      const existingPhone = await UserRepository.findByPhone(userData.telefono);
+      if (existingPhone) {
+        throw new Error('El número de teléfono ya se encuentra registrado.');
+      }
+    }
+    await UserRepository.createUser(userData);
   },
 
   /**

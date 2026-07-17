@@ -9,8 +9,13 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export function requireJwt(req: Request, res: Response, next: NextFunction) {
+  let token = '';
   const authHeader = req.headers['authorization'] ?? '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  } else if (req.query && typeof req.query.token === 'string') {
+    token = req.query.token;
+  }
 
   if (!token) {
     res.status(401).json({ error: 'Token ausente o malformado' });

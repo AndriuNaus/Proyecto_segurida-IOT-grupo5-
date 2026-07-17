@@ -21,6 +21,11 @@ setInterval(() => {
 }, 5 * 60 * 1000).unref(); // unref evita que mantenga el proceso activo en tests
 
 export function rateLimiter(req: Request, res: Response, next: NextFunction): void {
+  // Excluir el stream de video del límite de peticiones
+  if (req.path === '/api/camera/stream' || req.path === '/camera/stream') {
+    return next();
+  }
+
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   const now = Date.now();
 

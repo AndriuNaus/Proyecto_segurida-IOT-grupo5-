@@ -109,5 +109,5 @@ ON DUPLICATE KEY UPDATE id_alerta=id_alerta;
 -- 6. Configuración de Cámara ESP32-CAM por defecto
 -- -----------------------------------------------------
 INSERT INTO `sistema_seguridad`.`camera_config` (`id`, `resolution`, `stream_quality`, `motion_detection`, `esp32_cam_url`) 
-VALUES (1, 'VGA', 30, FALSE, 'http://192.168.1.100:81/stream')
-ON DUPLICATE KEY UPDATE id=1;
+VALUES (1, 'VGA', 30, FALSE, 'http://192.168.4.1:81/stream')
+ON DUPLICATE KEY UPDATE esp32_cam_url='http://192.168.4.1:81/stream';

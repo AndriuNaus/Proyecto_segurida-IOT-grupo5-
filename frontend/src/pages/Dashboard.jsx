@@ -81,32 +81,28 @@ function Dashboard() {
     }
   };
 
-  // Connect to WebSockets for live video streaming
+  // Configurar el stream de video y el sondeo de estado
   useEffect(() => {
     if (!user) return;
 
-    // Establish WebSocket connection
+    // Establecer la URL del stream de video HTTP directo a través del proxy del backend
+    setVideoFrame(`/api/camera/stream?token=${encodeURIComponent(user.token)}`);
+
+    // Sondeo periódico para verificar si la cámara sigue conectada
+    const statusInterval = setInterval(() => {
+      fetchCameraStatus(user.token);
+    }, 5000);
+
+    // Conexión WebSockets
     socketRef.current = io(window.location.origin);
 
     socketRef.current.on('connect', () => {
       console.log('Conectado a WebSockets del Backend');
     });
 
-    socketRef.current.on('video_frame', (base64Frame) => {
-      setVideoFrame(`data:image/jpeg;base64,${base64Frame}`);
-      setCameraConnected(true);
-      frameCountRef.current += 1;
-    });
-
-    // FPS calculation loop
-    fpsIntervalRef.current = setInterval(() => {
-      setFps(frameCountRef.current);
-      frameCountRef.current = 0;
-    }, 1000);
-
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
-      if (fpsIntervalRef.current) clearInterval(fpsIntervalRef.current);
+      clearInterval(statusInterval);
     };
   }, [user]);
 
@@ -508,12 +504,20 @@ function Dashboard() {
                     Monitor de Video en Vivo
                   </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Button 
+                    variant="outlined" 
+                    size="small" 
+                    onClick={() => navigate('/live')}
+                    sx={{ mr: 1, textTransform: 'none', color: '#3b82f6', borderColor: 'rgba(59, 130, 246, 0.4)' }}
+                  >
+                    Pantalla Completa
+                  </Button>
                   {useSimulator ? (
                     <Chip label="DEMO ACTIVA" color="info" size="small" variant="filled" />
                   ) : (
                     <Chip 
-                      label={cameraConnected ? `STREAMING - ${fps} FPS` : "SIN CONEXIÓN"} 
+                      label={cameraConnected ? "STREAMING EN VIVO" : "SIN CONEXIÓN"} 
                       color={cameraConnected ? "secondary" : "error"} 
                       size="small" 
                     />
@@ -544,6 +548,17 @@ function Dashboard() {
                     src={videoFrame} 
                     alt="ESP32 Live Stream" 
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                    onError={(e) => {
+                      const target = e.target;
+                      target.onerror = null;
+                      console.warn("Error en el stream del Dashboard, reintentando en 3 segundos...");
+                      setTimeout(() => {
+                        target.onerror = (evt) => {
+                          evt.target.onerror = null;
+                        };
+                        target.src = `${videoFrame}&t=${Date.now()}`;
+                      }, 3000);
+                    }}
                   />
                 ) : (
                   <Box sx={{ textAlign: 'center', p: 4 }}>
