@@ -12,6 +12,9 @@ permissions:
   contents: read
   packages: write
 
+env:
+  IMAGE_NAME: ghcr.io/andriunaus/proyecto_segurida-iot-grupo5
+
 jobs:
   # ----------------------------------------------------
   # ETAPA 1: Integración Continua (Validación y Calidad)
@@ -92,8 +95,8 @@ jobs:
           file: ./dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
   # ----------------------------------------------------
   # ETAPA 4: Despliegue en Servidor (CD)
@@ -108,7 +111,7 @@ jobs:
       - name: Simulación de Despliegue en Producción
         run: |
           echo "=== INICIANDO DESPLIEGUE EN PRODUCCIÓN ==="
-          echo "Desplegando la imagen: ghcr.io/${{ github.repository }}:latest"
+          echo "Desplegando la imagen: ${{ env.IMAGE_NAME }}:latest"
           echo "Actualizando contenedores en el servidor..."
           echo "Verificando el estado del servicio en el puerto 3000..."
           echo "=== DESPLIEGUE COMPLETADO SATISFACTORIAMENTE ==="
