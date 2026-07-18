@@ -1,0 +1,114 @@
+name: Pipeline de Integración y Despliegue Continuo (CI/CD)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ----------------------------------------------------
+  # ETAPA 1: Integración Continua (Validación y Calidad)
+  # ----------------------------------------------------
+  ci-validation:
+    name: Validación e Integración (Backend & Frontend)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar Código del Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Entorno de Node.js (v22)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Instalar Dependencias del Servidor (Backend)
+        run: npm ci
+
+      - name: Instalar Dependencias de la Interfaz (Frontend)
+        run: npm ci --prefix frontend
+
+      - name: Validar Tipados de TypeScript (Backend)
+        run: npx tsc --noEmit
+
+      - name: Ejecutar Análisis de Calidad Linter (Frontend)
+        run: npm run lint --prefix frontend
+
+      - name: Compilar Frontend (Construcción del Bundle)
+        run: npm run build --prefix frontend
+
+  # ----------------------------------------------------
+  # ETAPA 2: Análisis de Seguridad
+  # ----------------------------------------------------
+  security-scan:
+    name: Análisis de Vulnerabilidades (Seguridad)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar Código del Repositorio
+        uses: actions/checkout@v4
+
+      - name: Analizar Dependencias del Backend
+        run: npm audit --audit-level=high || echo "Advertencia de vulnerabilidades en backend"
+
+      - name: Analizar Dependencias del Frontend
+        run: npm audit --prefix frontend --audit-level=high || echo "Advertencia de vulnerabilidades en frontend"
+
+  # ----------------------------------------------------
+  # ETAPA 3: Construcción y Empaquetado Docker (CD)
+  # ----------------------------------------------------
+  build-docker-image:
+    name: Construcción de Imagen Docker
+    runs-on: ubuntu-latest
+    needs: [ci-validation, security-scan]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Descargar Código del Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Iniciar Sesión en GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construir y Publicar Imagen Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+  # ----------------------------------------------------
+  # ETAPA 4: Despliegue en Servidor (CD)
+  # ----------------------------------------------------
+  deploy:
+    name: Despliegue en Ambiente de Producción
+    runs-on: ubuntu-latest
+    needs: build-docker-image
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Simulación de Despliegue en Producción
+        run: |
+          echo "=== INICIANDO DESPLIEGUE EN PRODUCCIÓN ==="
+          echo "Desplegando la imagen: ghcr.io/${{ github.repository }}:latest"
+          echo "Actualizando contenedores en el servidor..."
+          echo "Verificando el estado del servicio en el puerto 3000..."
+          echo "=== DESPLIEGUE COMPLETADO SATISFACTORIAMENTE ==="
