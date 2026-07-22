@@ -52,10 +52,14 @@ export const CameraService = {
    * Obtiene el estado consolidado de la cámara.
    */
   getCameraStatus(userSession?: any) {
+    const now = Date.now();
+    const last = cameraState.lastActivity ? new Date(cameraState.lastActivity).getTime() : 0;
+    const isRecentlyActive = (now - last) < 15000; // Actividad en los últimos 15 segundos
+
     return {
       status: 'success',
       data: {
-        isConnected: cameraState.isConnected,
+        isConnected: cameraState.isConnected || isRecentlyActive,
         lastActivity: cameraState.lastActivity,
         config: cameraState.config,
         userSession

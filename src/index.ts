@@ -101,7 +101,6 @@ async function iniciarProxyVideo() {
   // Si la configuración está en 'push', desactivar el proxy activo (esperando conexiones entrantes)
   if (!url || url.toLowerCase() === 'push' || url.toLowerCase() === 'none') {
     console.log('Modo de recepción PUSH activo (Servidor en espera de frames de la ESP32-CAM en /api/camera/upload).');
-    cameraState.isConnected = false;
     if (streamAbortController) {
       streamAbortController.abort();
       streamAbortController = null;

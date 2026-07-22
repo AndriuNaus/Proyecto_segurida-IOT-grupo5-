@@ -13,6 +13,7 @@ import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import { ArrowBack, Videocam, VideocamOff, CameraAlt, SmartToy, Pets } from '@mui/icons-material';
 import { uselocalStorage } from '../storage/uselocalStorage';
+import { cameraModel } from '../models/cameraModel';
 import { FilesetResolver, ObjectDetector } from '@mediapipe/tasks-vision';
 
 function LiveStream() {
@@ -45,20 +46,15 @@ function LiveStream() {
       return;
     }
     setUser(sessionUser);
-    setStreamUrl(`/api/camera/stream?token=${encodeURIComponent(sessionUser.token)}`);
+    setStreamUrl(cameraModel.getStreamUrl(sessionUser.token));
     fetchCameraStatus(sessionUser.token);
   }, [navigate]);
 
   const fetchCameraStatus = async (token) => {
     try {
-      const res = await fetch('/api/camera/status', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const result = await res.json();
-        if (result.status === 'success') {
-          setCameraConnected(result.data.isConnected);
-        }
+      const result = await cameraModel.getStatus(token);
+      if (result.status === 'success') {
+        setCameraConnected(result.data.isConnected);
       }
     } catch (err) {
       console.error("Error al obtener estado de cámara:", err);

@@ -13,6 +13,7 @@ import {
   Refresh, Logout, Dashboard as DashboardIcon, CheckCircle, Warning
 } from '@mui/icons-material';
 import { uselocalStorage } from '../storage/uselocalStorage';
+import { cameraModel } from '../models/cameraModel';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -56,21 +57,16 @@ function Dashboard() {
     fetchCameraStatus(sessionUser.token);
   }, [navigate]);
 
-  // Fetch camera status from backend
+  // Fetch camera status using cameraModel
   const fetchCameraStatus = async (token) => {
     try {
-      const res = await fetch('/api/camera/status', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const result = await res.json();
-        if (result.status === 'success') {
-          setCameraConnected(result.data.isConnected);
-          setCameraConfig(result.data.config);
-          // If camera is physically connected, turn off simulator by default
-          if (result.data.isConnected) {
-            setUseSimulator(false);
-          }
+      const result = await cameraModel.getStatus(token);
+      if (result.status === 'success') {
+        setCameraConnected(result.data.isConnected);
+        setCameraConfig(result.data.config);
+        // If camera is physically connected, turn off simulator by default
+        if (result.data.isConnected) {
+          setUseSimulator(false);
         }
       }
     } catch (err) {
@@ -85,8 +81,8 @@ function Dashboard() {
   useEffect(() => {
     if (!user) return;
 
-    // Establecer la URL del stream de video HTTP directo a través del proxy del backend
-    setVideoFrame(`/api/camera/stream?token=${encodeURIComponent(user.token)}`);
+    // Establecer la URL del stream usando el modelo de la cámara
+    setVideoFrame(cameraModel.getStreamUrl(user.token));
 
     // Sondeo periódico para verificar si la cámara sigue conectada
     const statusInterval = setInterval(() => {
@@ -284,7 +280,7 @@ function Dashboard() {
     }));
   };
 
-  // Save Config to Server
+  // Save Config to Server using cameraModel
   const saveConfiguration = async () => {
     if (user.role !== 'admin') {
       showToast("Solo administradores pueden cambiar la configuración.", "error");
@@ -292,33 +288,20 @@ function Dashboard() {
     }
 
     try {
-      const res = await fetch('/api/camera/configure', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`
-        },
-        body: JSON.stringify(cameraConfig)
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        showToast("Configuración guardada y aplicada con éxito.", "success");
-        // Update alerts log
-        const timestamp = new Date().toLocaleTimeString('es-ES');
-        setAlerts(prev => [{
-          id: Date.now(),
-          text: `Configuración actualizada: ${cameraConfig.resolution}, Calidad: ${cameraConfig.streamQuality}`,
-          type: "info",
-          time: timestamp
-        }, ...prev]);
-      } else {
-        showToast(data.error || "Error al actualizar la configuración.", "error");
-      }
+      await cameraModel.configure(user.token, cameraConfig);
+      showToast("Configuración guardada y aplicada con éxito.", "success");
+      
+      // Update alerts log
+      const timestamp = new Date().toLocaleTimeString('es-ES');
+      setAlerts(prev => [{
+        id: Date.now(),
+        text: `Configuración actualizada: ${cameraConfig.resolution}, Calidad: ${cameraConfig.streamQuality}`,
+        type: "info",
+        time: timestamp
+      }, ...prev]);
     } catch (err) {
       console.error(err);
-      showToast("No se pudo conectar al servidor para guardar.", "error");
+      showToast(err.message || "No se pudo conectar al servidor para guardar.", "error");
     }
   };
 

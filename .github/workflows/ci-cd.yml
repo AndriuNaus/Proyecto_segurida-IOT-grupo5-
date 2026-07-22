@@ -99,7 +99,7 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
   # ----------------------------------------------------
-  # ETAPA 4: Despliegue en Servidor (CD)
+  # ETAPA 4: Despliegue Automático en Servidor AWS (CD)
   # ----------------------------------------------------
   deploy:
     name: Despliegue en Ambiente de Producción
@@ -108,10 +108,29 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: Simulación de Despliegue en Producción
-        run: |
-          echo "=== INICIANDO DESPLIEGUE EN PRODUCCIÓN ==="
-          echo "Desplegando la imagen: ${{ env.IMAGE_NAME }}:latest"
-          echo "Actualizando contenedores en el servidor..."
-          echo "Verificando el estado del servicio en el puerto 3000..."
-          echo "=== DESPLIEGUE COMPLETADO SATISFACTORIAMENTE ==="
+      - name: Conectar por SSH a AWS y Desplegar
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "=== CONECTADO A AWS EC2 ==="
+            # Navegar a la carpeta del proyecto en el servidor AWS
+            cd ~/Proyecto_segurida-IOT-grupo5- || cd ~/proyecto || exit 1
+            
+            echo "1. Obteniendo últimos cambios de GitHub..."
+            git pull origin main
+            
+            echo "2. Reconstruyendo y reiniciando contenedores..."
+            if [ -f "docker-compose.yml" ]; then
+              docker compose down
+              docker compose up -d --build
+            else
+              docker stop app || true
+              docker rm app || true
+              docker run -d --name app -p 3000:3000 --env-file .env ghcr.io/andriunaus/proyecto_segurida-iot-grupo5:latest
+            fi
+            
+            echo "=== DESPLIEGUE AUTOMÁTICO COMPLETADO SATISFACTORIAMENTE ==="
+

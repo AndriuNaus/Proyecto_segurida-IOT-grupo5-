@@ -27,8 +27,8 @@ function RegisterPage() {
   const navigate = useNavigate();
 
   // Función ejecutada al enviar el registro
-  const handleSendForm = () => {
-    const res = userModel.register(name, lastname, address, mobile, email, password);
+  const handleSendForm = async () => {
+    const res = await userModel.register(name, lastname, address, mobile, email, password);
     
     if (res.success) {
       alert(`${res.message} Ya puedes ingresar con tu correo.`);
