@@ -122,12 +122,12 @@ jobs:
             git pull origin main
             
             echo "2. Reconstruyendo imagen Docker (backend-iot)..."
-            docker build -t backend-iot .
+            sudo docker build -t backend-iot .
             
             echo "3. Deteniendo y reemplazando contenedor 'backend-iot'..."
-            docker stop backend-iot || true
-            docker rm backend-iot || true
-            docker run -d --name backend-iot -p 3000:3000 --restart always --env-file .env backend-iot
+            sudo docker stop backend-iot || true
+            sudo docker rm backend-iot || true
+            sudo docker run -d --name backend-iot -p 3000:3000 --restart always --env-file .env backend-iot
             
             echo "=== DESPLIEGUE AUTOMÁTICO COMPLETADO SATISFACTORIAMENTE ==="
 
