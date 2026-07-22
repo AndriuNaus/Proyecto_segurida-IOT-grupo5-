@@ -122,14 +122,17 @@ jobs:
             echo "1. Obteniendo últimos cambios de GitHub..."
             git pull origin main
             
-            echo "2. Reconstruyendo y reiniciando contenedores..."
+            echo "2. Descargando última imagen compilada desde GHCR..."
+            docker pull ghcr.io/andriunaus/proyecto_segurida-iot-grupo5:latest || true
+            
+            echo "3. Reconstruyendo y reiniciando contenedores..."
             if [ -f "docker-compose.yml" ]; then
               docker compose down
               docker compose up -d --build
             else
               docker stop app || true
               docker rm app || true
-              docker run -d --name app -p 3000:3000 --env-file .env ghcr.io/andriunaus/proyecto_segurida-iot-grupo5:latest
+              docker run -d --name app -p 3000:3000 --restart always --env-file .env ghcr.io/andriunaus/proyecto_segurida-iot-grupo5:latest
             fi
             
             echo "=== DESPLIEGUE AUTOMÁTICO COMPLETADO SATISFACTORIAMENTE ==="
