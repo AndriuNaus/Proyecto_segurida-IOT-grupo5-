@@ -484,7 +484,7 @@ function Dashboard() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Videocam color="primary" />
                   <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    Monitor de Video en Vivo
+                    Monitor de Video en Vivo 24/7  
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
