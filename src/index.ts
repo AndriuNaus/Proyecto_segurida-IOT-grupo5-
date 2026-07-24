@@ -7,9 +7,11 @@ import path from 'path';
 import { requestLogger } from './middlewares/logger.js';
 import { rateLimiter } from './middlewares/rateLimiter.js';
 import mainRouter from './routes/index.js';
-import { initializeDatabase } from './config/database.js';
+import { initializeDatabase, supabase } from './config/supabase.js';
 import { cameraState, CameraService, streamClients, closeAllStreamClients } from './services/camera.service.js';
 import { errorHandler } from './middlewares/errorHandler.js';
+import { EventoRepository } from './repositories/evento.repository.js';
+import { EvidenciaRepository } from './repositories/evidencia.repository.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -30,13 +32,15 @@ app.use(express.static('public'));
 
 // Escuchar cambios de URL para reconectar el stream inmediatamente al actualizar configuración
 app.post('/api/camera/configure', (_req, res, next) => {
-  // Dejamos que Express ejecute la ruta de configuración primero, y después reiniciamos el stream.
   res.on('finish', () => {
     console.log('Configuración de cámara cambiada, reiniciando proxy de video...');
     iniciarProxyVideo();
   });
   next();
 });
+
+// Control de frecuencia para guardar snapshots periódicos de evidencia en Supabase Storage
+let lastSnapshotTime = 0;
 
 // Endpoint público para recibir el flujo de imágenes (frames) de la ESP32-CAM (Modo Push)
 app.post('/api/camera/upload', (req, res) => {
@@ -46,7 +50,7 @@ app.post('/api/camera/upload', (req, res) => {
     chunks.push(chunk);
   });
 
-  req.on('end', () => {
+  req.on('end', async () => {
     const buffer = Buffer.concat(chunks);
     
     if (buffer.length > 0) {
@@ -54,7 +58,7 @@ app.post('/api/camera/upload', (req, res) => {
       const base64Data = buffer.toString('base64');
       io.emit('video_frame', base64Data);
 
-      // 2. Retransmitir en vivo (MJPEG) a todos los clientes HTTP conectados (MJPEG stream)
+      // 2. Retransmitir en vivo (MJPEG) a todos los clientes HTTP conectados
       const boundary = '123456789000000000000987654321';
       const header = `\r\n--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${buffer.length}\r\n\r\n`;
       
@@ -67,7 +71,43 @@ app.post('/api/camera/upload', (req, res) => {
         }
       }
 
-      // 3. Actualizar estado de la cámara
+      // 3. Persistencia de evidencia en Supabase (Snapshot cada 60 segundos si la detección está activa)
+      const now = Date.now();
+      if (cameraState.config.motionDetection && (now - lastSnapshotTime > 60000)) {
+        lastSnapshotTime = now;
+        try {
+          const filename = `snapshot_${Date.now()}.jpg`;
+          const { data: uploadData, error: uploadErr } = await supabase.storage
+            .from('evidencias')
+            .upload(filename, buffer, { contentType: 'image/jpeg' });
+
+          if (!uploadErr && uploadData) {
+            const publicUrl = supabase.storage.from('evidencias').getPublicUrl(uploadData.path).data.publicUrl;
+            
+            // Registrar evento y evidencia en la base de datos Supabase
+            const evento = await EventoRepository.crearEvento({
+              tipo_evento: 'Movimiento',
+              descripcion: 'Snapshot automático por detección de movimiento',
+              id_dispositivo: 1,
+              nivel_riesgo: 'Medio'
+            });
+
+            if (evento.id_evento) {
+              await EvidenciaRepository.registrarEvidencia({
+                id_evento: evento.id_evento,
+                tipo_archivo: 'image/jpeg',
+                ruta_archivo: publicUrl,
+                id_dispositivo: 1
+              });
+              console.log(`📸 Evidencia de cámara guardada en Supabase Storage: ${publicUrl}`);
+            }
+          }
+        } catch (e: any) {
+          console.warn('Nota: No se pudo subir el snapshot a Supabase Storage (asegúrate de crear el bucket "evidencias").');
+        }
+      }
+
+      // 4. Actualizar estado de la cámara
       cameraState.isConnected = true;
       cameraState.lastActivity = new Date();
     }
@@ -89,7 +129,7 @@ app.get(/^(?!\/api).*/, (req, res) => {
   res.sendFile(path.resolve('public', 'index.html'));
 });
 
-// Manejo de errores global (incluye formateador de Zod a 422)
+// Manejo de errores global
 app.use(errorHandler);
 
 // Proxy de video ESP32-CAM a Socket.io (Modo Pull)
@@ -98,7 +138,6 @@ let streamAbortController: AbortController | null = null;
 async function iniciarProxyVideo() {
   const url = cameraState.config.esp32CamUrl;
   
-  // Si la configuración está en 'push', desactivar el proxy activo (esperando conexiones entrantes)
   if (!url || url.toLowerCase() === 'push' || url.toLowerCase() === 'none') {
     console.log('Modo de recepción PUSH activo (Servidor en espera de frames de la ESP32-CAM en /api/camera/upload).');
     if (streamAbortController) {
@@ -108,7 +147,6 @@ async function iniciarProxyVideo() {
     return;
   }
 
-  // Cancelar stream anterior si existe
   if (streamAbortController) {
     streamAbortController.abort();
   }
@@ -130,11 +168,9 @@ async function iniciarProxyVideo() {
     cameraState.lastActivity = new Date();
 
     response.data.on('data', (chunk: Buffer) => {
-      // Convertir el chunk a base64 (mantenemos compatibilidad)
       const base64Data = chunk.toString('base64');
       io.emit('video_frame', base64Data);
 
-      // Transmitir el chunk directamente a todos los clientes HTTP conectados
       for (const client of streamClients) {
         try {
           client.write(chunk);
@@ -173,19 +209,18 @@ async function iniciarProxyVideo() {
 
 function intentarReconexion() {
   setTimeout(() => {
-    // Si la URL sigue siendo la misma o cambió, intentamos reconectar
     iniciarProxyVideo();
   }, 5000);
 }
 
-// Inicializar base de datos y luego arrancar servicios
+// Inicializar Supabase y luego arrancar servicios
 initializeDatabase()
   .then(async () => {
     await CameraService.loadCameraConfigFromDb();
     iniciarProxyVideo();
   })
   .catch((err) => {
-    console.error('Error al inicializar la base de datos MySQL/MariaDB:', err.message);
+    console.error('Error al inicializar la base de datos Supabase:', err.message);
     iniciarProxyVideo();
   });
 
@@ -200,5 +235,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT ?? 3000;
 httpServer.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en https://iot-security.pro/ (puerto ${PORT})`);
 });

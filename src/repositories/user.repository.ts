@@ -1,4 +1,4 @@
-import { query } from '../config/database.js';
+import { supabase } from '../config/supabase.js';
 
 export interface UserRow {
   id?: number;
@@ -15,62 +15,66 @@ export const UserRepository = {
    * Busca un usuario por su correo (nombre de usuario para login).
    */
   async findByUsername(username: string): Promise<UserRow | null> {
-    const rows = await query(
-      "SELECT correo as username, password, rol as role FROM usuario WHERE correo = ?",
-      [username]
-    );
-    if (rows && rows.length > 0) {
-      return {
-        username: rows[0].username,
-        password: rows[0].password,
-        role: rows[0].role.toLowerCase() // Normalizamos 'Admin'/'Cliente' a 'admin'/'cliente'
-      };
-    }
-    return null;
+    const { data, error } = await supabase
+      .from('usuario')
+      .select('correo, password, rol')
+      .eq('correo', username)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    return {
+      username: data.correo,
+      password: data.password,
+      role: data.rol ? data.rol.toLowerCase() : 'cliente'
+    };
   },
 
   /**
    * Busca un usuario por su número de teléfono.
    */
   async findByPhone(phone: string): Promise<UserRow | null> {
-    const rows = await query(
-      "SELECT correo as username, password, rol as role, telefono FROM usuario WHERE telefono = ?",
-      [phone]
-    );
-    if (rows && rows.length > 0) {
-      return {
-        username: rows[0].username,
-        password: rows[0].password,
-        role: rows[0].role.toLowerCase(),
-        telefono: rows[0].telefono
-      };
-    }
-    return null;
+    const { data, error } = await supabase
+      .from('usuario')
+      .select('correo, password, rol, telefono')
+      .eq('telefono', phone)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    return {
+      username: data.correo,
+      password: data.password,
+      role: data.rol ? data.rol.toLowerCase() : 'cliente',
+      telefono: data.telefono
+    };
   },
 
   /**
    * Crea un nuevo usuario en la base de datos.
    */
   async createUser(user: UserRow): Promise<void> {
-    // Para insertar, volvemos a capitalizar el rol para cumplir con el ENUM
     const roleToCapitalize = user.role || 'cliente';
-    const capitalizedRole = roleToCapitalize.charAt(0).toUpperCase() + roleToCapitalize.slice(1);
-    
+    const capitalizedRole = (roleToCapitalize.charAt(0).toUpperCase() + roleToCapitalize.slice(1)) as 'Cliente' | 'Admin' | 'Tecnico';
+
     const nombre = user.nombre || user.username.split('@')[0];
     const telefono = user.telefono || `tel-${Math.random().toString(36).slice(2, 12)}`;
     const direccion = user.direccion || 'Dirección por defecto';
 
-    await query(
-      "INSERT INTO usuario (nombre, telefono, correo, password, rol, direccion) VALUES (?, ?, ?, ?, ?, ?)",
-      [
+    const { error } = await supabase
+      .from('usuario')
+      .insert({
         nombre,
         telefono,
-        user.username,
-        user.password,
-        capitalizedRole,
+        correo: user.username,
+        password: user.password,
+        rol: capitalizedRole,
         direccion
-      ]
-    );
+      });
+
+    if (error) {
+      console.error('Error insertando usuario en Supabase:', error);
+      throw new Error(error.message);
+    }
   }
 };
-
