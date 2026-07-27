@@ -1,4 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
+import bcrypt from 'bcryptjs';
 import { UserRepository, type UserRow } from '../repositories/user.repository.js';
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'secreto-super-seguro-clase-iot';
@@ -41,14 +42,21 @@ export const AuthService = {
     const user = await UserRepository.findByUsername(username);
     if (!user) return null;
 
-    // Validación de contraseña (texto plano según inicialización en db)
-    if (user.password !== password) return null;
+    let isMatch = false;
+    if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$')) {
+      isMatch = await bcrypt.compare(password, user.password);
+    } else {
+      // Compatibilidad con usuarios de prueba antiguos en texto plano
+      isMatch = (user.password === password);
+    }
+
+    if (!isMatch) return null;
 
     return this.generateToken(user.username, user.role);
   },
 
   /**
-   * Registra un nuevo usuario en el sistema.
+   * Registra un nuevo usuario en el sistema con la contraseña encriptada con Bcrypt.
    * Lanza un error si el usuario ya existe.
    */
   async register(userData: Omit<UserRow, 'id'>): Promise<void> {
@@ -62,7 +70,13 @@ export const AuthService = {
         throw new Error('El número de teléfono ya se encuentra registrado.');
       }
     }
-    await UserRepository.createUser(userData);
+    // Hashear contraseña con Bcrypt (salt rounds = 10)
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+    await UserRepository.createUser({
+      ...userData,
+      password: hashedPassword
+    });
   },
 
   /**

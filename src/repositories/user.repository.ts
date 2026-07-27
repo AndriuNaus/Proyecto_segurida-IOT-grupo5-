@@ -15,39 +15,59 @@ export const UserRepository = {
    * Busca un usuario por su correo (nombre de usuario para login).
    */
   async findByUsername(username: string): Promise<UserRow | null> {
-    const { data, error } = await supabase
-      .from('usuario')
-      .select('correo, password, rol')
-      .eq('correo', username)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('usuario')
+        .select('correo, password, rol')
+        .eq('correo', username)
+        .maybeSingle();
 
-    if (error || !data) return null;
+      if (error) {
+        console.error('❌ Error de Supabase al buscar usuario:', error.message);
+        return null;
+      }
 
-    return {
-      username: data.correo,
-      password: data.password,
-      role: data.rol ? data.rol.toLowerCase() : 'cliente'
-    };
+      if (!data) return null;
+
+      return {
+        username: data.correo,
+        password: data.password,
+        role: data.rol ? data.rol.toLowerCase() : 'cliente'
+      };
+    } catch (err: any) {
+      console.error('❌ Excepción al consultar usuario en Supabase:', err?.message || err);
+      return null;
+    }
   },
 
   /**
    * Busca un usuario por su número de teléfono.
    */
   async findByPhone(phone: string): Promise<UserRow | null> {
-    const { data, error } = await supabase
-      .from('usuario')
-      .select('correo, password, rol, telefono')
-      .eq('telefono', phone)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('usuario')
+        .select('correo, password, rol, telefono')
+        .eq('telefono', phone)
+        .maybeSingle();
 
-    if (error || !data) return null;
+      if (error) {
+        console.error('❌ Error de Supabase al buscar teléfono:', error.message);
+        return null;
+      }
 
-    return {
-      username: data.correo,
-      password: data.password,
-      role: data.rol ? data.rol.toLowerCase() : 'cliente',
-      telefono: data.telefono
-    };
+      if (!data) return null;
+
+      return {
+        username: data.correo,
+        password: data.password,
+        role: data.rol ? data.rol.toLowerCase() : 'cliente',
+        telefono: data.telefono
+      };
+    } catch (err: any) {
+      console.error('❌ Excepción al consultar teléfono en Supabase:', err?.message || err);
+      return null;
+    }
   },
 
   /**
@@ -73,7 +93,7 @@ export const UserRepository = {
       });
 
     if (error) {
-      console.error('Error insertando usuario en Supabase:', error);
+      console.error('Error insertando usuario en Supabase:', error.message);
       throw new Error(error.message);
     }
   }
