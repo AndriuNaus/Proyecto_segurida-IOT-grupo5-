@@ -24,7 +24,11 @@ export const AuthController = {
         message: 'Autenticación exitosa',
         token
       });
-    } catch (error) {
+    } catch (error: any) {
+      if (error.message === 'NOT_VERIFIED') {
+        res.status(403).json({ error: 'Por favor, verifica tu correo electrónico antes de iniciar sesión.' });
+        return;
+      }
       next(error); // Permite al errorHandler global procesar los errores de validación de Zod
     }
   },
@@ -49,6 +53,31 @@ export const AuthController = {
         res.status(400).json({ error: error.message });
         return;
       }
+      next(error);
+    }
+  },
+
+  /**
+   * Verifica el correo del usuario mediante el token
+   */
+  async verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token } = req.params;
+      
+      if (!token) {
+        res.status(400).json({ error: 'Token no proporcionado.' });
+        return;
+      }
+
+      const success = await AuthService.verifyEmail(token);
+
+      if (!success) {
+        res.status(400).json({ error: 'Token inválido o expirado.' });
+        return;
+      }
+
+      res.status(200).json({ message: 'Correo verificado con éxito. Ya puedes iniciar sesión.' });
+    } catch (error) {
       next(error);
     }
   }

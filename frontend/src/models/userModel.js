@@ -95,25 +95,29 @@ export const userModel = {
 
   /**
    * Registra un nuevo usuario enviando los datos al backend (/api/auth/register) vía authAPI.
-   * @param {string} name - Nombres
-   * @param {string} lastname - Apellidos
+   * @param {string} firstName - Primer nombre
+   * @param {string} middleName - Segundo nombre
+   * @param {string} lastName - Primer apellido
+   * @param {string} secondLastName - Segundo apellido
    * @param {string} address - Dirección
    * @param {string} mobile - Teléfono
    * @param {string} email - Correo / usuario
    * @param {string} password - Contraseña
    * @returns {Promise<object>} Resultado de la operación { success, message, user }
    */
-  register: async (name, lastname, address, mobile, email, password) => {
+  register: async (firstName, middleName, lastName, secondLastName, address, mobile, email, password) => {
     try {
       const username = email;
-      const nombreCompleto = `${name} ${lastname}`.trim();
 
       // 1. Enviar datos a la API Backend de registro vía authAPI
       const data = await authAPI.register({
         username,
         password,
         role: 'cliente',
-        nombre: nombreCompleto,
+        primer_nombre: firstName,
+        segundo_nombre: middleName,
+        primer_apellido: lastName,
+        segundo_apellido: secondLastName,
         telefono: mobile,
         direccion: address
       });
@@ -121,8 +125,8 @@ export const userModel = {
       // 2. Guardar copia local en localStorage para sincronización frontend
       const users = uselocalStorage.get("registered_users") || [];
       const newUser = {
-        name,
-        lastname,
+        name: firstName,
+        lastname: lastName,
         address,
         mobile,
         email,
@@ -147,8 +151,8 @@ export const userModel = {
       }
 
       const newUser = {
-        name,
-        lastname,
+        name: firstName,
+        lastname: lastName,
         address,
         mobile,
         email,

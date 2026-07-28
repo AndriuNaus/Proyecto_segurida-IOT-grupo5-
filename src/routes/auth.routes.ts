@@ -9,5 +9,7 @@ router.post('/login', AuthController.login);
 // POST /api/auth/register
 router.post('/register', AuthController.register);
 
-export default router;
+// GET /api/auth/verify-email/:token
+router.get('/verify-email/:token', AuthController.verifyEmail);
 
+export default router;

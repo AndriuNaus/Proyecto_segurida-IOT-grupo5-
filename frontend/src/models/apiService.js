@@ -69,9 +69,17 @@ export const authAPI = {
       method: 'POST',
       body: userData
     });
+  },
+
+  /**
+   * Verifica el correo usando el token enviado
+   */
+  verifyEmail: async (token) => {
+    return httpRequest(`/auth/verify-email/${token}`, {
+      method: 'GET'
+    });
   }
 };
-
 /**
  * APIs del Módulo de la Cámara ESP32-CAM
  */

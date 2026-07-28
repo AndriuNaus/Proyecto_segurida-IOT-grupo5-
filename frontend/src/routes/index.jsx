@@ -5,6 +5,7 @@ import RegisterPage from "../pages/Register";
 import LandiPage from "../pages/user/Landing";
 import DashboardPage from "../pages/Dashboard";
 import LiveStreamPage from "../pages/LiveStream";
+import VerifyEmailPage from "../pages/VerifyEmail";
 
 /**
  * AppRoutes - Administrador de rutas con React Router
@@ -18,6 +19,9 @@ function AppRoutes() {
       
       {/* Ruta para el formulario de registro */}
       <Route path="registro" element={<RegisterPage />} />
+
+      {/* Ruta para verificar el correo */}
+      <Route path="verificar" element={<VerifyEmailPage />} />
       
       {/* Ruta para el panel de control y monitoreo */}
       <Route path="dashboard" element={<DashboardPage />} />

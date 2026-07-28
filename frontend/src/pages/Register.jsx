@@ -17,18 +17,25 @@ import AppRegistrationIcon from '@mui/icons-material/AppRegistration';
  */
 function RegisterPage() {
   // Declaración de estados para los campos del formulario
-  const [name, setName] = useState("");
-  const [lastname, setLastname] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [secondLastName, setSecondLastName] = useState("");
   const [address, setAddress] = useState("");
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasLength = password.length >= 8;
+  const isPasswordValid = hasUppercase && hasNumber && hasLength;
+
   const navigate = useNavigate();
 
   // Función ejecutada al enviar el registro
   const handleSendForm = async () => {
-    const res = await userModel.register(name, lastname, address, mobile, email, password);
+    const res = await userModel.register(firstName, middleName, lastName, secondLastName, address, mobile, email, password);
     
     if (res.success) {
       alert(`${res.message} Ya puedes ingresar con tu correo.`);
@@ -67,25 +74,47 @@ function RegisterPage() {
 
         {/* Campos del formulario estructurados en Grid */}
         <Grid container spacing={2}>
-          {/* Campo de Nombre */}
+          {/* Campo de Primer Nombre */}
           <Grid item xs={12} sm={6}>
             <TextFieldMui
-              label="Nombres"
-              placeholder="Ingrese sus nombres"
-              value={name}
-              onChange={setName}
-              id="name"
+              label="Primer Nombre *"
+              placeholder="Ingrese su primer nombre"
+              value={firstName}
+              onChange={setFirstName}
+              id="firstName"
             />
           </Grid>
 
-          {/* Campo de Apellido */}
+          {/* Campo de Segundo Nombre */}
           <Grid item xs={12} sm={6}>
             <TextFieldMui
-              label="Apellidos"
-              placeholder="Ingrese sus apellidos"
-              value={lastname}
-              onChange={setLastname}
-              id="lastname"
+              label="Segundo Nombre"
+              placeholder="Ingrese su segundo nombre (opcional)"
+              value={middleName}
+              onChange={setMiddleName}
+              id="middleName"
+            />
+          </Grid>
+
+          {/* Campo de Primer Apellido */}
+          <Grid item xs={12} sm={6}>
+            <TextFieldMui
+              label="Primer Apellido *"
+              placeholder="Ingrese su primer apellido"
+              value={lastName}
+              onChange={setLastName}
+              id="lastName"
+            />
+          </Grid>
+
+          {/* Campo de Segundo Apellido */}
+          <Grid item xs={12} sm={6}>
+            <TextFieldMui
+              label="Segundo Apellido"
+              placeholder="Ingrese su segundo apellido (opcional)"
+              value={secondLastName}
+              onChange={setSecondLastName}
+              id="secondLastName"
             />
           </Grid>
 
@@ -126,25 +155,38 @@ function RegisterPage() {
           {/* Campo de Contraseña */}
           <Grid item xs={12} sm={6}>
             <PasswordInput
-              label="Contraseña"
+              label="Contraseña *"
               value={password}
               onChange={setPassword}
               id="password"
             />
+            {password && (
+              <Box sx={{ mt: 1, px: 1, fontSize: '0.8rem' }}>
+                <div style={{ color: hasLength ? '#4caf50' : '#f44336' }}>
+                  {hasLength ? '✓' : '✗'} Mínimo 8 caracteres
+                </div>
+                <div style={{ color: hasUppercase ? '#4caf50' : '#f44336' }}>
+                  {hasUppercase ? '✓' : '✗'} Al menos una mayúscula
+                </div>
+                <div style={{ color: hasNumber ? '#4caf50' : '#f44336' }}>
+                  {hasNumber ? '✓' : '✗'} Al menos un número
+                </div>
+              </Box>
+            )}
           </Grid>
 
-          {/* Botón de envío de formulario con validación idéntica a hoteles */}
+          {/* Botón de envío de formulario con validación */}
           <Grid item xs={12} sx={{ mt: 2 }}>
             <ButtonMui
               text="REGISTRARSE"
               onClick={handleSendForm}
               disabled={
-                name.length <= 2 ||
-                lastname.length <= 2 ||
+                firstName.length < 2 ||
+                lastName.length < 2 ||
                 address.length <= 2 ||
                 mobile.length <= 5 ||
                 email.length <= 5 ||
-                password.length <= 3
+                !isPasswordValid
               }
             />
           </Grid>

@@ -1,6 +1,19 @@
-import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
+import nodemailer from 'nodemailer';
 import { UserRepository, type UserRow } from '../repositories/user.repository.js';
+
+// Configuración de correo electrónico
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: false, // true para 465, false para otros puertos
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'secreto-super-seguro-clase-iot';
 
@@ -25,7 +38,7 @@ export const AuthService = {
       aud: 'https://api.iot-seguridad.local/camera',
       role: role,
       exp: Math.floor(Date.now() / 1000) + 3600, // 1 hora de validez
-      jti: randomUUID()
+      jti: uuidv4()
     }));
 
     const sig = createHmac('sha256', JWT_SECRET)
@@ -52,6 +65,11 @@ export const AuthService = {
 
     if (!isMatch) return null;
 
+    // Verificar si el correo ha sido verificado (a menos que sea el admin o usuario de prueba legacy)
+    if (user.is_verified === false && user.role !== 'admin') {
+      throw new Error('NOT_VERIFIED');
+    }
+
     return this.generateToken(user.username, user.role);
   },
 
@@ -73,10 +91,42 @@ export const AuthService = {
     // Hashear contraseña con Bcrypt (salt rounds = 10)
     const hashedPassword = await bcrypt.hash(userData.password, 10);
 
+    const verificationToken = uuidv4();
+
     await UserRepository.createUser({
       ...userData,
-      password: hashedPassword
+      password: hashedPassword,
+      is_verified: false,
+      verification_token: verificationToken
     });
+
+    // Enviar correo de verificación (en segundo plano)
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verificar?token=${verificationToken}`;
+      
+      transporter.sendMail({
+        from: `"Sistema de Seguridad" <${process.env.SMTP_USER}>`,
+        to: userData.username,
+        subject: 'Verifica tu cuenta',
+        html: `
+          <h1>Bienvenido al Sistema de Seguridad Inteligente</h1>
+          <p>Hola ${userData.primer_nombre},</p>
+          <p>Para activar tu cuenta y poder iniciar sesión, por favor haz clic en el siguiente enlace:</p>
+          <a href="${verificationLink}" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; display: inline-block;">Verificar mi correo</a>
+          <p>Si no solicitaste esta cuenta, puedes ignorar este correo.</p>
+        `
+      }).catch(err => console.error('Error enviando correo de verificación:', err));
+    } else {
+      console.warn('⚠️ Credenciales SMTP no configuradas. No se enviará el correo de verificación.');
+      console.log(`Token de verificación para ${userData.username}: ${verificationToken}`);
+    }
+  },
+
+  /**
+   * Verifica un token de correo electrónico.
+   */
+  async verifyEmail(token: string): Promise<boolean> {
+    return await UserRepository.verifyUser(token);
   },
 
   /**
