@@ -163,8 +163,8 @@ export const userModel = {
       uselocalStorage.save("registered_users", users);
 
       return {
-        success: true,
-        message: error.message || "Registro guardado en modo local.",
+        success: false,
+        message: error.message || "Error al conectar con el servidor",
         user: newUser
       };
     }

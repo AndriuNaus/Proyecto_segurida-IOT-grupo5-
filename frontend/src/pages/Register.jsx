@@ -41,8 +41,14 @@ function RegisterPage() {
       alert(`${res.message} Ya puedes ingresar con tu correo.`);
       navigate("/ingreso"); // Redirige a la pantalla de ingreso
     } else {
-      alert(res.message);
+      alert(`Error: ${res.message}`);
     }
+  };
+
+  const handlePhoneChange = (val) => {
+    // Solo permitir números
+    const onlyNums = val.replace(/[^0-9]/g, '');
+    setMobile(onlyNums);
   };
 
   return (
@@ -135,7 +141,7 @@ function RegisterPage() {
               label="Número de teléfono"
               placeholder="Ingrese su número"
               value={mobile}
-              onChange={setMobile}
+              onChange={handlePhoneChange}
               id="mobile"
             />
           </Grid>

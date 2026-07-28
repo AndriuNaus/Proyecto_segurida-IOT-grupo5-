@@ -1,22 +1,26 @@
 #include "esp_camera.h"
 #include <WiFi.h>
-#include <WiFiClient.h>
+#include "esp_http_server.h"
+#include "esp_timer.h"
+#include "img_converters.h"
+#include "Arduino.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 
 // ==========================================
-// CONFIGURACIÓN DE RED WIFI y SERVIDOR
+// CONFIGURACIÓN DE RED WIFI
 // ==========================================
 const char* ssid     = "TU_SSID_WIFI";
 const char* password = "TU_CONTRASEÑA_WIFI";
 
-// Servidor Node.js
-const char* serverHost = "3.133.100.38";
-const int   serverPort = 3000;
-const char* serverPath = "/api/camera/upload";
-
-// Intervalo entre capturas (ms)
-#define CAPTURE_INTERVAL_MS 500
+// ==========================================
+// CONFIGURACIÓN DE IP ESTÁTICA (Opcional)
+// ==========================================
+#define USE_STATIC_IP 0
+IPAddress staticIP(192, 168, 1, 50);
+IPAddress gateway(192, 168, 1, 1);
+IPAddress subnet(255, 255, 255, 0);
+IPAddress primaryDNS(8, 8, 8, 8);
 
 // ==========================================
 // DEFINICIÓN DE PINES (Modelo AI-Thinker)
@@ -39,196 +43,214 @@ const char* serverPath = "/api/camera/upload";
 #define PCLK_GPIO_NUM     22
 
 // ==========================================
+// VARIABLES DE SERVIDOR HTTP
+// ==========================================
+httpd_handle_t stream_httpd = NULL;
+
+#define PART_BOUNDARY "123456789000000000000987654321"
+static const char* STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
+static const char* STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
+static const char* STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
+
+// ==========================================
+// HANDLER: GET /stream
+// ==========================================
+static esp_err_t stream_handler(httpd_req_t *req) {
+    esp_err_t res = ESP_OK;
+    size_t _jpg_buf_len = 0;
+    uint8_t * _jpg_buf = NULL;
+    char * part_buf[64];
+    
+    res = httpd_resp_set_type(req, STREAM_CONTENT_TYPE);
+    if (res != ESP_OK) return res;
+
+    while (true) {
+        camera_fb_t * fb = esp_camera_fb_get();
+        if (!fb) {
+            Serial.println("Error al capturar frame");
+            res = ESP_FAIL;
+            break;
+        }
+
+        if (fb->format != PIXFORMAT_JPEG) {
+            bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
+            esp_camera_fb_return(fb);
+            fb = NULL;
+            if (!jpeg_converted) {
+                Serial.println("Compresión a JPEG falló");
+                res = ESP_FAIL;
+                break;
+            }
+        } else {
+            _jpg_buf_len = fb->len;
+            _jpg_buf = fb->buf;
+        }
+
+        size_t hlen = snprintf((char *)part_buf, 64, STREAM_PART, _jpg_buf_len);
+        res = httpd_resp_send_chunk(req, (const char *)part_buf, hlen);
+        if (res == ESP_OK) {
+            res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
+        }
+        if (res == ESP_OK) {
+            res = httpd_resp_send_chunk(req, STREAM_BOUNDARY, strlen(STREAM_BOUNDARY));
+        }
+
+        if (fb) {
+            esp_camera_fb_return(fb);
+            fb = NULL;
+            _jpg_buf = NULL;
+        } else if (_jpg_buf) {
+            free(_jpg_buf);
+            _jpg_buf = NULL;
+        }
+
+        if (res != ESP_OK) break;
+    }
+    return res;
+}
+
+void startCameraServer() {
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.server_port = 80;
+
+    httpd_uri_t stream_uri = {
+        .uri       = "/stream",
+        .method    = HTTP_GET,
+        .handler   = stream_handler,
+        .user_ctx  = NULL
+    };
+
+    if (httpd_start(&stream_httpd, &config) == ESP_OK) {
+        httpd_register_uri_handler(stream_httpd, &stream_uri);
+        Serial.println("Servidor de cámara iniciado en puerto 80");
+    } else {
+        Serial.println("Error al iniciar el servidor de cámara");
+    }
+}
+
+// ==========================================
 // FUNCIÓN: inicializar cámara
 // ==========================================
 bool initCamera() {
-  camera_config_t config;
-  config.ledc_channel = LEDC_CHANNEL_0;
-  config.ledc_timer   = LEDC_TIMER_0;
-  config.pin_d0       = Y2_GPIO_NUM;
-  config.pin_d1       = Y3_GPIO_NUM;
-  config.pin_d2       = Y4_GPIO_NUM;
-  config.pin_d3       = Y5_GPIO_NUM;
-  config.pin_d4       = Y6_GPIO_NUM;
-  config.pin_d5       = Y7_GPIO_NUM;
-  config.pin_d6       = Y8_GPIO_NUM;
-  config.pin_d7       = Y9_GPIO_NUM;
-  config.pin_xclk     = XCLK_GPIO_NUM;
-  config.pin_pclk     = PCLK_GPIO_NUM;
-  config.pin_vsync    = VSYNC_GPIO_NUM;
-  config.pin_href     = HREF_GPIO_NUM;
-  config.pin_sccb_sda = SIOD_GPIO_NUM;
-  config.pin_sccb_scl = SIOC_GPIO_NUM;
-  config.pin_pwdn     = PWDN_GPIO_NUM;
-  config.pin_reset    = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
-  config.pixel_format = PIXFORMAT_JPEG;
+    camera_config_t config;
+    config.ledc_channel = LEDC_CHANNEL_0;
+    config.ledc_timer   = LEDC_TIMER_0;
+    config.pin_d0       = Y2_GPIO_NUM;
+    config.pin_d1       = Y3_GPIO_NUM;
+    config.pin_d2       = Y4_GPIO_NUM;
+    config.pin_d3       = Y5_GPIO_NUM;
+    config.pin_d4       = Y6_GPIO_NUM;
+    config.pin_d5       = Y7_GPIO_NUM;
+    config.pin_d6       = Y8_GPIO_NUM;
+    config.pin_d7       = Y9_GPIO_NUM;
+    config.pin_xclk     = XCLK_GPIO_NUM;
+    config.pin_pclk     = PCLK_GPIO_NUM;
+    config.pin_vsync    = VSYNC_GPIO_NUM;
+    config.pin_href     = HREF_GPIO_NUM;
+    config.pin_sccb_sda = SIOD_GPIO_NUM;
+    config.pin_sccb_scl = SIOC_GPIO_NUM;
+    config.pin_pwdn     = PWDN_GPIO_NUM;
+    config.pin_reset    = RESET_GPIO_NUM;
+    config.xclk_freq_hz = 20000000;
+    config.pixel_format = PIXFORMAT_JPEG;
+    config.grab_mode    = CAMERA_GRAB_WHEN_EMPTY; // CRÍTICO: Evita cuelgues
 
-  if (psramFound()) {
-    // Con PSRAM: VGA (640x480), 1 solo buffer para ahorrar memoria
-    config.frame_size   = FRAMESIZE_VGA;
-    config.jpeg_quality = 12;
-    config.fb_count     = 1;
-    config.fb_location  = CAMERA_FB_IN_PSRAM;
-    Serial.println("PSRAM encontrada. Usando FRAMESIZE_VGA.");
-  } else {
-    // Sin PSRAM: QVGA (320x240) para no agotar la RAM interna
-    config.frame_size   = FRAMESIZE_QVGA;
-    config.jpeg_quality = 15;
-    config.fb_count     = 1;
-    config.fb_location  = CAMERA_FB_IN_DRAM;
-    Serial.println("Sin PSRAM. Usando FRAMESIZE_QVGA.");
-  }
+    if (psramFound()) {
+        config.frame_size   = FRAMESIZE_VGA;      // 640x480
+        config.jpeg_quality = 12;
+        config.fb_count     = 1;
+        config.fb_location  = CAMERA_FB_IN_DRAM;  // CRÍTICO: Usar DRAM
+        Serial.println("PSRAM encontrada, pero forzando DRAM.");
+    } else {
+        config.frame_size   = FRAMESIZE_QVGA;     // 320x240
+        config.jpeg_quality = 15;
+        config.fb_count     = 1;
+        config.fb_location  = CAMERA_FB_IN_DRAM;
+        Serial.println("Sin PSRAM. Usando DRAM.");
+    }
 
-  esp_err_t err = esp_camera_init(&config);
-  if (err != ESP_OK) {
-    Serial.printf("Error al inicializar la camara: 0x%x\n", err);
-    return false;
-  }
+    esp_err_t err = esp_camera_init(&config);
+    if (err != ESP_OK) {
+        Serial.printf("Error al inicializar la camara: 0x%x\n", err);
+        return false;
+    }
 
-  // Ajustes del sensor
-  sensor_t* s = esp_camera_sensor_get();
-  s->set_brightness(s, 1);
-  s->set_contrast(s, 0);
-  s->set_whitebal(s, 1);
+    // Ajustes del sensor
+    sensor_t* s = esp_camera_sensor_get();
+    s->set_brightness(s, 1);
+    s->set_contrast(s, 0);
+    s->set_whitebal(s, 1);
 
-  Serial.println("Camara inicializada correctamente.");
-  return true;
+    Serial.println("Camara inicializada correctamente.");
+    return true;
 }
 
 // ==========================================
-// FUNCIÓN: conectar / reconectar WiFi
+// FUNCIÓN: conectar WiFi
 // ==========================================
 void connectWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return;
+    Serial.print("Conectando a WiFi");
+    
+    WiFi.setSleep(false); // CRÍTICO: Previene desconexiones WiFi
+    WiFi.mode(WIFI_STA);
 
-  Serial.print("Conectando a WiFi");
-  WiFi.disconnect(true);
-  delay(100);
-  WiFi.begin(ssid, password);
-
-  int retries = 0;
-  while (WiFi.status() != WL_CONNECTED && retries < 30) {
-    delay(500);
-    Serial.print(".");
-    retries++;
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("\nWiFi conectado! IP: %s\n", WiFi.localIP().toString().c_str());
-  } else {
-    Serial.println("\nFallo la conexion WiFi. Reintentando en el proximo ciclo.");
-  }
-}
-
-// ==========================================
-// FUNCIÓN: capturar y enviar frame via streaming
-// Usa WiFiClient + chunks de 1024 bytes
-// → NUNCA copia la imagen completa a otra zona de RAM
-// ==========================================
-void captureAndSend() {
-  // 1. Capturar frame
-  camera_fb_t* fb = esp_camera_fb_get();
-  if (!fb) {
-    Serial.println("Error al capturar frame.");
-    return;
-  }
-
-  Serial.printf("Frame: %u bytes | Heap: %u | PSRAM: %u\n",
-                fb->len, ESP.getFreeHeap(), ESP.getFreePsram());
-
-  // 2. Conectar al servidor
-  WiFiClient client;
-  client.setTimeout(10);  // 10 segundos de timeout
-
-  if (!client.connect(serverHost, serverPort)) {
-    Serial.println("Error: no se pudo conectar al servidor.");
-    esp_camera_fb_return(fb);
-    return;
-  }
-
-  // 3. Enviar cabeceras HTTP manualmente
-  client.printf("POST %s HTTP/1.1\r\n", serverPath);
-  client.printf("Host: %s:%d\r\n", serverHost, serverPort);
-  client.println("Content-Type: image/jpeg");
-  client.printf("Content-Length: %u\r\n", fb->len);
-  client.println("Connection: close");
-  client.println();  // Línea en blanco = fin de headers
-
-  // 4. Enviar imagen en chunks de 1024 bytes (sin copiar todo a RAM)
-  uint8_t* buf       = fb->buf;
-  size_t   remaining = fb->len;
-  const size_t CHUNK = 1024;
-
-  while (remaining > 0) {
-    size_t toSend = (remaining > CHUNK) ? CHUNK : remaining;
-    size_t written = client.write(buf, toSend);
-    if (written == 0) {
-      Serial.println("Error enviando chunk. Conexion cortada.");
-      break;
+    if (USE_STATIC_IP) {
+        WiFi.config(staticIP, gateway, subnet, primaryDNS);
     }
-    buf       += written;
-    remaining -= written;
-  }
 
-  // 5. Leer respuesta del servidor
-  long timeout = millis();
-  while (client.connected() && !client.available()) {
-    if (millis() - timeout > 5000) {
-      Serial.println("Timeout esperando respuesta.");
-      break;
+    WiFi.disconnect(true);
+    delay(100);
+    WiFi.begin(ssid, password);
+
+    int retries = 0;
+    // Backoff reconnect (40 intentos x 500ms)
+    while (WiFi.status() != WL_CONNECTED && retries < 40) {
+        delay(500);
+        Serial.print(".");
+        retries++;
     }
-    delay(10);
-  }
 
-  if (client.available()) {
-    String response = client.readStringUntil('\n');
-    Serial.printf("Respuesta: %s\n", response.c_str());
-  }
-
-  // 6. Liberar recursos SIEMPRE
-  client.stop();
-  esp_camera_fb_return(fb);
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.printf("\nWiFi conectado! IP: %s\n", WiFi.localIP().toString().c_str());
+    } else {
+        Serial.println("\nFallo la conexion WiFi. Se reintentara desde el loop.");
+    }
 }
 
 // ==========================================
 // SETUP
 // ==========================================
 void setup() {
-  // Deshabilitar brownout detector para evitar resets
-  // cuando cámara + WiFi consumen picos de corriente
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+    // NO DESACTIVAR el brownout detector (recomendación del plan)
+    // WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 
-  Serial.begin(115200);
-  Serial.setDebugOutput(true);
-  Serial.println("\n=== ESP32-CAM iniciando ===");
-  Serial.printf("Heap libre al inicio: %u bytes\n", ESP.getFreeHeap());
+    Serial.begin(115200);
+    Serial.setDebugOutput(false);
+    
+    Serial.println("\n=== ESP32-CAM iniciando en MODO PULL (Stream) ===");
+    
+    if (!initCamera()) {
+        Serial.println("Fallo critico en la camara. Reiniciando en 5s...");
+        delay(5000);
+        ESP.restart();
+    }
 
-  if (!initCamera()) {
-    Serial.println("Fallo critico en la camara. Reiniciando en 5s...");
-    delay(5000);
-    ESP.restart();
-  }
+    connectWiFi();
 
-  connectWiFi();
-
-  Serial.printf("Heap libre tras init: %u bytes\n", ESP.getFreeHeap());
-  Serial.println("Iniciando captura...");
+    if (WiFi.status() == WL_CONNECTED) {
+        startCameraServer();
+    }
 }
 
 // ==========================================
 // LOOP
 // ==========================================
 void loop() {
-  // Reconectar WiFi si se cae
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi desconectado. Reconectando...");
-    connectWiFi();
+    // Reconectar WiFi si se cae
+    if (WiFi.status() != WL_CONNECTED) {
+        connectWiFi();
+    }
+    
+    // Todo ocurre en el servidor HTTP corriendo en background
     delay(1000);
-    return;
-  }
-
-  captureAndSend();
-
-  delay(CAPTURE_INTERVAL_MS);
 }
