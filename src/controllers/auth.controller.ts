@@ -69,7 +69,8 @@ export const AuthController = {
         return;
       }
 
-      const success = await AuthService.verifyEmail(token);
+      const tokenStr = Array.isArray(token) ? token[0] : token;
+      const success = await AuthService.verifyEmail(tokenStr as string);
 
       if (!success) {
         res.status(400).json({ error: 'Token inválido o expirado.' });
