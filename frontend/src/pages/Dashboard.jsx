@@ -2,18 +2,18 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import {
-  Container, Grid, Card, CardContent, Box, Typography, Button, TextField,
-  Switch, FormControlLabel, Select, MenuItem, InputLabel, FormControl,
-  List, ListItem, ListItemText, ListItemIcon, Alert, Snackbar, Divider,
-  AppBar, Toolbar, IconButton, CircularProgress, Badge, Chip, Slider
+  Container, Grid, Card, CardContent, Box, Typography, Button,
+  Switch, FormControlLabel, List, ListItem, ListItemText, ListItemIcon,
+  Alert, Snackbar, Divider, AppBar, Toolbar, IconButton,
+  CircularProgress, Badge, Chip
 } from '@mui/material';
 import {
-  Security, Videocam, VideocamOff, Settings, Notifications, History,
-  PowerSettingsNew, Lock, LockOpen, Lightbulb, VolumeUp, VolumeOff,
-  Refresh, Logout, Dashboard as DashboardIcon, CheckCircle, Warning
+  Security, Videocam, VideocamOff, Notifications, History,
+  Refresh, Logout, CheckCircle, Warning
 } from '@mui/icons-material';
 import { uselocalStorage } from '../storage/uselocalStorage';
 import { cameraModel } from '../models/cameraModel';
+import ResidentManager from './ResidentManager';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -611,191 +611,9 @@ function Dashboard() {
             </Card>
           </Grid>
 
-          {/* 2. Controls & Actuators Panel */}
+          {/* 2. Panel de Residentes */}
           <Grid item xs={12} lg={4}>
-            <Grid container spacing={4}>
-              
-              {/* Telemetry and Relays Control */}
-              <Grid item xs={12}>
-                <Card>
-                  <Box sx={{ p: 2.5, borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <PowerSettingsNew color="primary" />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                      Control de Actuadores
-                    </Typography>
-                  </Box>
-                  <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                    
-                    {/* Door Lock Button */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ p: 1, borderRadius: 2, backgroundColor: lockStatus ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: lockStatus ? '#3b82f6' : '#10b981' }}>
-                          {lockStatus ? <Lock /> : <LockOpen />}
-                        </Box>
-                        <Box>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Cerradura Inteligente</Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            Estado: {lockStatus ? "Asegurado (Cerrado)" : "Libre (Abierto)"}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Button 
-                        variant="contained" 
-                        color={lockStatus ? "success" : "warning"}
-                        size="small"
-                        onClick={toggleLock}
-                      >
-                        {lockStatus ? "Desbloquear" : "Bloquear"}
-                      </Button>
-                    </Box>
-
-                    <Divider />
-
-                    {/* Aux Lights Button */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ p: 1, borderRadius: 2, backgroundColor: lightsStatus ? 'rgba(234, 179, 8, 0.15)' : 'rgba(156, 163, 175, 0.1)', color: lightsStatus ? '#eab308' : '#9ca3af' }}>
-                          <Lightbulb />
-                        </Box>
-                        <Box>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Reflector de Luz Auxiliar</Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            Estado: {lightsStatus ? "Encendido" : "Apagado"}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Button 
-                        variant="outlined" 
-                        color={lightsStatus ? "warning" : "inherit"}
-                        size="small"
-                        onClick={toggleLights}
-                      >
-                        {lightsStatus ? "Apagar" : "Encender"}
-                      </Button>
-                    </Box>
-
-                    <Divider />
-
-                    {/* Panic Siren Switch */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ p: 1, borderRadius: 2, backgroundColor: sirenStatus ? 'rgba(244, 63, 94, 0.15)' : 'rgba(156, 163, 175, 0.1)', color: sirenStatus ? '#f43f5e' : '#9ca3af' }}>
-                          {sirenStatus ? <VolumeUp /> : <VolumeOff />}
-                        </Box>
-                        <Box>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Sirena de Pánico</Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            Estado: {sirenStatus ? "ACTIVADA (Buzzer)" : "Desactivada"}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Button 
-                        variant="contained" 
-                        color="error"
-                        size="small"
-                        onClick={toggleSiren}
-                        sx={{
-                          animation: sirenStatus ? 'blinker 1s linear infinite' : 'none',
-                          '@keyframes blinker': {
-                            '50%': { opacity: 0.5 }
-                          }
-                        }}
-                      >
-                        {sirenStatus ? "DESACTIVAR" : "DISPARAR"}
-                      </Button>
-                    </Box>
-
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Hardware / IoT Config Settings (Admin Only) */}
-              <Grid item xs={12}>
-                <Card>
-                  <Box sx={{ p: 2.5, borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Settings color="primary" />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                      Configuración de Cámara
-                    </Typography>
-                  </Box>
-                  <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {!isAdmin && (
-                      <Alert severity="warning">
-                        Solo los administradores pueden editar los parámetros de la cámara.
-                      </Alert>
-                    )}
-
-                    <FormControl fullWidth disabled={!isAdmin} size="small">
-                      <InputLabel id="res-label">Resolución de Imagen</InputLabel>
-                      <Select
-                        labelId="res-label"
-                        label="Resolución de Imagen"
-                        value={cameraConfig.resolution}
-                        onChange={(e) => handleConfigChange('resolution', e.target.value)}
-                      >
-                        <MenuItem value="QVGA">QVGA (320x240)</MenuItem>
-                        <MenuItem value="VGA">VGA (640x480)</MenuItem>
-                        <MenuItem value="SVGA">SVGA (800x600)</MenuItem>
-                        <MenuItem value="UXGA">UXGA (1600x1200 - HD)</MenuItem>
-                      </Select>
-                    </FormControl>
-
-                    <Box>
-                      <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block' }}>
-                        Factor Calidad Stream JPEG: {cameraConfig.streamQuality} (10 = Mejor, 63 = Menor)
-                      </Typography>
-                      <Slider
-                        disabled={!isAdmin}
-                        value={cameraConfig.streamQuality}
-                        min={10}
-                        max={63}
-                        onChange={(e, val) => handleConfigChange('streamQuality', val)}
-                        valueLabelDisplay="auto"
-                      />
-                    </Box>
-
-                    <FormControlLabel
-                      control={
-                        <Switch 
-                          disabled={!isAdmin}
-                          checked={cameraConfig.motionDetection} 
-                          onChange={(e) => handleConfigChange('motionDetection', e.target.checked)} 
-                          color="primary"
-                        />
-                      }
-                      label={
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>Detección de Movimiento</Typography>
-                          <Typography variant="caption" color="textSecondary">Dispara alertas automáticas ante cambios de píxeles</Typography>
-                        </Box>
-                      }
-                    />
-
-                    <TextField
-                      label="Enlace Stream de la ESP32-CAM"
-                      placeholder="http://192.168.1.100:81/stream"
-                      value={cameraConfig.esp32CamUrl}
-                      disabled={!isAdmin}
-                      onChange={(e) => handleConfigChange('esp32CamUrl', e.target.value)}
-                      fullWidth
-                      size="small"
-                      helperText="Dirección IP local o pública del stream del microcontrolador."
-                    />
-
-                    <Button
-                      variant="contained"
-                      onClick={saveConfiguration}
-                      disabled={!isAdmin}
-                      fullWidth
-                      startIcon={<CheckCircle />}
-                    >
-                      Guardar Cambios
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-            </Grid>
+            <ResidentManager />
           </Grid>
 
           {/* 3. History Alerts Log */}

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from './auth.routes.js';
 import cameraRoutes from './camera.routes.js';
 import alertsRoutes from './alerts.routes.js';
+import residentRoutes from './resident.routes.js';
 import { requireJwt } from '../middlewares/auth.js';
 
 const router = Router();
@@ -14,5 +15,8 @@ router.use('/camera', requireJwt, cameraRoutes);
 
 // Rutas de Alertas (Protegidas por JWT)
 router.use('/alerts', requireJwt, alertsRoutes);
+
+// Rutas de Residentes (Protegidas por JWT)
+router.use('/residents', requireJwt, residentRoutes);
 
 export default router;

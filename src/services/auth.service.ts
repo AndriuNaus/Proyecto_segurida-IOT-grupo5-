@@ -65,10 +65,10 @@ export const AuthService = {
 
     if (!isMatch) return null;
 
-    // Verificar si el correo ha sido verificado (a menos que sea el admin o usuario de prueba legacy)
-    if (user.is_verified === false && user.role !== 'admin') {
-      throw new Error('NOT_VERIFIED');
-    }
+    // Verificación de correo DESACTIVADA temporalmente
+    // if (user.is_verified === false && user.role !== 'admin') {
+    //   throw new Error('NOT_VERIFIED');
+    // }
 
     return this.generateToken(user.username, user.role);
   },
@@ -96,7 +96,7 @@ export const AuthService = {
     await UserRepository.createUser({
       ...userData,
       password: hashedPassword,
-      is_verified: false,
+      is_verified: true, // Verificación desactivada temporalmente
       verification_token: verificationToken
     });
 

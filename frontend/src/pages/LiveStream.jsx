@@ -11,6 +11,7 @@ import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar';
 import { ArrowBack, Videocam, VideocamOff, CameraAlt, SmartToy, Pets } from '@mui/icons-material';
 import { uselocalStorage } from '../storage/uselocalStorage';
 import { cameraModel } from '../models/cameraModel';
@@ -39,6 +40,7 @@ function LiveStream() {
   const loopActiveRef = useRef(false);
   const webcamStreamRef = useRef(null);
   const lastAlertTimeRef = useRef(0);
+  const [telegramToast, setTelegramToast] = useState({ open: false, message: '', severity: 'success' });
 
   // Inicialización de la sesión del usuario
   useEffect(() => {
@@ -193,14 +195,54 @@ function LiveStream() {
                   // Extraer el token de la sesión actual
                   const sessionUser = uselocalStorage.get("user");
                   if (sessionUser && sessionUser.token) {
+                    const confidence = Math.round(personDetection.categories[0].score * 100);
+
+                    // Leer modo del hogar desde localStorage (escrito por ResidentManager)
+                    const homeMode = localStorage.getItem('home_mode') || 'EN_CASA';
+                    const esCritico = homeMode === 'AUSENTE';
+
+                    // Capturar frame si es modo AUSENTE (para enviar foto a Telegram)
+                    let imagen_base64 = null;
+                    if (esCritico) {
+                      try {
+                        const tempCanvas = document.createElement('canvas');
+                        const sourceEl = useWebcam ? videoRef.current : imageRef.current;
+                        if (sourceEl) {
+                          tempCanvas.width = sourceEl.clientWidth || 640;
+                          tempCanvas.height = sourceEl.clientHeight || 360;
+                          const ctx2 = tempCanvas.getContext('2d');
+                          ctx2.drawImage(sourceEl, 0, 0, tempCanvas.width, tempCanvas.height);
+                          // Superponer bounding boxes
+                          if (canvasRef.current) {
+                            ctx2.drawImage(canvasRef.current, 0, 0);
+                          }
+                          imagen_base64 = tempCanvas.toDataURL('image/jpeg', 0.7);
+                        }
+                      } catch (e) {
+                        console.warn('No se pudo capturar el frame:', e);
+                      }
+                    }
+
                     alertsAPI.sendAlert(sessionUser.token, {
-                      message: "🚨 ALERTA: Se ha detectado una persona en la cámara principal.",
-                      confidence: Math.round(personDetection.categories[0].score * 100)
-                    }).then(() => {
-                      console.log("Alerta enviada exitosamente a Telegram");
+                      message: esCritico
+                        ? '🚨 INTRUSIÓN DETECTADA: Persona en cámara con casa VACÍA'
+                        : '👤 Persona detectada en cámara (residentes en casa)',
+                      confidence,
+                      tipo_evento: 'Persona',
+                      ...(imagen_base64 && { imagen_base64 })
+                    }).then((res) => {
+                      console.log('Alerta enviada exitosamente a Telegram');
+                      const telegramOk = res?.telegramEnviado !== false;
+                      setTelegramToast({
+                        open: true,
+                        message: esCritico
+                          ? (telegramOk ? `🚨 INTRUSIÓN enviada a Telegram (${confidence}%)` : '⚠️ Intrusión guardada, Telegram falló')
+                          : (telegramOk ? `✅ Alerta enviada a Telegram (Confianza: ${confidence}%)` : `⚠️ Alerta guardada, pero Telegram no respondió`),
+                        severity: esCritico ? 'error' : (telegramOk ? 'success' : 'warning')
+                      });
                     }).catch(err => {
-                      console.error("Error al enviar alerta a Telegram:", err);
-                      // Resetear tiempo para permitir reintento si falló
+                      console.error('Error al enviar alerta a Telegram:', err);
+                      setTelegramToast({ open: true, message: '❌ Error al enviar alerta', severity: 'error' });
                       lastAlertTimeRef.current = 0;
                     });
                   }
@@ -556,6 +598,23 @@ function LiveStream() {
           )}
         </Card>
       </Container>
+
+      {/* Toast de notificación de Telegram */}
+      <Snackbar
+        open={telegramToast.open}
+        autoHideDuration={4000}
+        onClose={() => setTelegramToast(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setTelegramToast(prev => ({ ...prev, open: false }))}
+          severity={telegramToast.severity}
+          variant="filled"
+          sx={{ minWidth: 320, fontWeight: 600, fontSize: '0.9rem', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}
+        >
+          {telegramToast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
