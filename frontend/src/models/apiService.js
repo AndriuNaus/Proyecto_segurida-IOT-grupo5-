@@ -114,7 +114,24 @@ export const cameraAPI = {
   }
 };
 
+/**
+ * APIs del Módulo de Alertas
+ */
+export const alertsAPI = {
+  /**
+   * Envía una alerta al backend para notificar al usuario vía Telegram
+   */
+  sendAlert: async (token, alertData) => {
+    return httpRequest('/alerts', {
+      method: 'POST',
+      token,
+      body: alertData
+    });
+  }
+};
+
 export default {
   auth: authAPI,
-  camera: cameraAPI
+  camera: cameraAPI,
+  alerts: alertsAPI
 };

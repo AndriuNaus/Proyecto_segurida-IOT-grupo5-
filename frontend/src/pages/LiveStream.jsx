@@ -14,6 +14,7 @@ import Alert from '@mui/material/Alert';
 import { ArrowBack, Videocam, VideocamOff, CameraAlt, SmartToy, Pets } from '@mui/icons-material';
 import { uselocalStorage } from '../storage/uselocalStorage';
 import { cameraModel } from '../models/cameraModel';
+import { alertsAPI } from '../models/apiService';
 import { FilesetResolver, ObjectDetector } from '@mediapipe/tasks-vision';
 
 function LiveStream() {
@@ -37,6 +38,7 @@ function LiveStream() {
   const detectorRef = useRef(null);
   const loopActiveRef = useRef(false);
   const webcamStreamRef = useRef(null);
+  const lastAlertTimeRef = useRef(0);
 
   // Inicialización de la sesión del usuario
   useEffect(() => {
@@ -83,13 +85,13 @@ function LiveStream() {
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
         );
-        // Instanciar el detector con el modelo EfficientDet-Lite0
+        // Instanciar el detector con el modelo EfficientDet-Lite2
         const detector = await ObjectDetector.createFromOptions(vision, {
           baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/float16/1/efficientdet_lite2.tflite",
             delegate: "GPU"
           },
-          scoreThreshold: 0.45, // Mostrar detecciones con más del 45% de confianza
+          scoreThreshold: 0.60, // Mostrar detecciones con más del 60% de confianza
           runningMode: "IMAGE"
         });
 
@@ -175,6 +177,36 @@ function LiveStream() {
             if (results && results.detections) {
               setDetectedObjects(results.detections);
               drawBoundingBoxes(results.detections, element);
+
+              // Lógica de Alertas a Telegram
+              const personDetection = results.detections.find(d => {
+                const category = d.categories[0];
+                return category && category.categoryName === "person" && category.score > 0.70;
+              });
+
+              if (personDetection) {
+                const now = Date.now();
+                // Enviar alerta máximo 1 vez cada 30 segundos
+                if (now - lastAlertTimeRef.current > 30000) {
+                  lastAlertTimeRef.current = now;
+                  
+                  // Extraer el token de la sesión actual
+                  const sessionUser = uselocalStorage.get("user");
+                  if (sessionUser && sessionUser.token) {
+                    alertsAPI.sendAlert(sessionUser.token, {
+                      message: "🚨 ALERTA: Se ha detectado una persona en la cámara principal.",
+                      confidence: Math.round(personDetection.categories[0].score * 100)
+                    }).then(() => {
+                      console.log("Alerta enviada exitosamente a Telegram");
+                    }).catch(err => {
+                      console.error("Error al enviar alerta a Telegram:", err);
+                      // Resetear tiempo para permitir reintento si falló
+                      lastAlertTimeRef.current = 0;
+                    });
+                  }
+                }
+              }
+
             } else {
               setDetectedObjects([]);
               clearCanvas();
