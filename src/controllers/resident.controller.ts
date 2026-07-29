@@ -33,7 +33,7 @@ export const ResidentController = {
   },
 
   async updatePresence(req: Request, res: Response) {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const { isAtHome, is_at_home } = req.body;
     const value = isAtHome ?? is_at_home;
 
@@ -53,7 +53,7 @@ export const ResidentController = {
   },
 
   async delete(req: Request, res: Response) {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const deleted = await ResidentRepository.delete(id);
     if (!deleted) {
       res.status(404).json({ error: 'Residente no encontrado' });

@@ -22,7 +22,7 @@ export const AlertsController = {
       }
 
       // 1. Consultar modo del hogar
-      const { isAnyoneHome, mode, atHome, total } = ResidentRepository.getSummary();
+      const { isAnyoneHome, mode, atHome, total } = await ResidentRepository.getSummary();
       const esCritico = !isAnyoneHome; // Nadie en casa = intrusión crítica
 
       const confianzaTexto = confidence ? ` (Confianza: ${confidence}%)` : '';
