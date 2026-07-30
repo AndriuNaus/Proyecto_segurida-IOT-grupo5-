@@ -62,7 +62,7 @@ export const AuthController = {
    */
   async verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { token } = req.params;
+      const token = req.params.token as string;
       
       if (!token) {
         res.status(400).json({ error: 'Token no proporcionado.' });

@@ -19,7 +19,7 @@ export const UserController = {
    */
   async updateCameraAccess(req: Request, res: Response) {
     try {
-      const { username } = req.params;
+      const username = req.params.username as string;
       const { can_view_camera } = req.body;
 
       if (typeof can_view_camera !== 'boolean') {
