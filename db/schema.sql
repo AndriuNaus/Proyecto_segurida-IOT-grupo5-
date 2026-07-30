@@ -183,14 +183,16 @@ CREATE TABLE IF NOT EXISTS `sistema_seguridad`.`historial_dispositivo` (
 CREATE TABLE IF NOT EXISTS `sistema_seguridad`.`mascota` (
   `id_mascota` INT NOT NULL AUTO_INCREMENT,
   `nombre` VARCHAR(50) NULL DEFAULT NULL,
-  `usuario_id_usuario` INT NOT NULL,
+  `tipo` VARCHAR(50) NULL DEFAULT NULL,
+  `owner_id` INT NOT NULL,
+  `fecha_registro` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id_mascota`),
-  INDEX `fk_mascota_usuario1_idx` (`usuario_id_usuario` ASC) VISIBLE,
+  INDEX `fk_mascota_usuario1_idx` (`owner_id` ASC) VISIBLE,
   CONSTRAINT `fk_mascota_usuario1`
-    FOREIGN KEY (`usuario_id_usuario`)
+    FOREIGN KEY (`owner_id`)
     REFERENCES `sistema_seguridad`.`usuario` (`id_usuario`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 
 -- -----------------------------------------------------
@@ -221,9 +223,18 @@ CREATE TABLE IF NOT EXISTS `sistema_seguridad`.`notificacion` (
 -- Table `sistema_seguridad`.`camera_config`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `sistema_seguridad`.`camera_config` (
-  `id` INT PRIMARY KEY,
+  `id` INT NOT NULL AUTO_INCREMENT,
   `resolution` VARCHAR(10) NOT NULL,
   `stream_quality` INT NOT NULL,
   `motion_detection` BOOLEAN NOT NULL,
-  `esp32_cam_url` VARCHAR(255) NOT NULL
+  `esp32_cam_url` VARCHAR(255) NOT NULL,
+  `owner_id` INT NULL,
+  `nombre` VARCHAR(100) DEFAULT 'Mi ESP32-CAM',
+  PRIMARY KEY (`id`),
+  INDEX `fk_camera_usuario_idx` (`owner_id` ASC) VISIBLE,
+  CONSTRAINT `fk_camera_usuario`
+    FOREIGN KEY (`owner_id`)
+    REFERENCES `sistema_seguridad`.`usuario` (`id_usuario`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;

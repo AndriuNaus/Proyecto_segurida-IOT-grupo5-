@@ -24,6 +24,7 @@ function LiveStream() {
   const [loading, setLoading] = useState(true);
   const [cameraConnected, setCameraConnected] = useState(false);
   const [streamUrl, setStreamUrl] = useState('');
+  const [unauthorizedError, setUnauthorizedError] = useState(null);
 
   // Estados para la IA y la cámara de PC
   const [detectorLoading, setDetectorLoading] = useState(true);
@@ -62,6 +63,9 @@ function LiveStream() {
       }
     } catch (err) {
       console.error("Error al obtener estado de cámara:", err);
+      if (err.message && (err.message.includes('autorización') || err.message.includes('Permisos'))) {
+        setUnauthorizedError(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -396,6 +400,23 @@ function LiveStream() {
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 2, backgroundColor: '#0f172a' }}>
         <CircularProgress size={60} color="primary" />
         <Typography variant="h6" color="textSecondary">Cargando Stream en Vivo...</Typography>
+      </Box>
+    );
+  }
+
+  if (unauthorizedError) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 2, backgroundColor: '#0f172a' }}>
+        <VideocamOff sx={{ fontSize: 80, color: '#f43f5e', mb: 2 }} />
+        <Typography variant="h5" color="error" sx={{ mb: 1, fontWeight: 'bold' }}>
+          Acceso Restringido
+        </Typography>
+        <Typography variant="body1" color="textSecondary" sx={{ mb: 4, textAlign: 'center', maxWidth: 400 }}>
+          {unauthorizedError}
+        </Typography>
+        <Button variant="contained" onClick={() => navigate('/dashboard')} startIcon={<ArrowBack />}>
+          Volver al Inicio
+        </Button>
       </Box>
     );
   }

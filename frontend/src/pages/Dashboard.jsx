@@ -14,6 +14,7 @@ import {
 import { uselocalStorage } from '../storage/uselocalStorage';
 import { cameraModel } from '../models/cameraModel';
 import ResidentManager from './ResidentManager';
+import PetManager from './PetManager';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -362,7 +363,7 @@ function Dashboard() {
     );
   }
 
-  const isAdmin = user && user.role === 'admin';
+  const isAdmin = user && user.role?.toLowerCase() === 'admin';
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#0f172a' }}>
@@ -398,6 +399,11 @@ function Dashboard() {
                 Rol: {user ? user.role : 'Invitado'}
               </Typography>
             </Box>
+            {isAdmin && (
+              <Button size="small" variant="outlined" onClick={() => navigate('/usuarios')} sx={{ mr: 1, borderColor: 'rgba(59, 130, 246, 0.4)', color: '#3b82f6' }}>
+                Accesos
+              </Button>
+            )}
             <IconButton onClick={handleLogout} color="error" title="Cerrar Sesión" sx={{ border: '1px solid rgba(244, 63, 94, 0.2)', borderRadius: 2 }}>
               <Logout />
             </IconButton>
@@ -617,7 +623,7 @@ function Dashboard() {
           </Grid>
 
           {/* 3. History Alerts Log */}
-          <Grid item xs={12}>
+          <Grid item xs={12} lg={8}>
             <Card>
               <Box sx={{ 
                 p: 2.5, 
@@ -671,6 +677,11 @@ function Dashboard() {
                 </List>
               </CardContent>
             </Card>
+          </Grid>
+
+          {/* 4. Panel de Mascotas */}
+          <Grid item xs={12} lg={4}>
+            <PetManager />
           </Grid>
 
         </Grid>

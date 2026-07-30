@@ -129,7 +129,9 @@ CREATE TABLE IF NOT EXISTS historial_dispositivo (
 CREATE TABLE IF NOT EXISTS mascota (
   id_mascota SERIAL PRIMARY KEY,
   nombre VARCHAR(50) DEFAULT NULL,
-  usuario_id_usuario INT NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE
+  tipo VARCHAR(50) DEFAULT NULL,
+  owner_id INT NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+  fecha_registro TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 12. Tabla: notificacion
@@ -143,11 +145,13 @@ CREATE TABLE IF NOT EXISTS notificacion (
 
 -- 13. Tabla: camera_config (Configuración del flujo de la ESP32-CAM)
 CREATE TABLE IF NOT EXISTS camera_config (
-  id INT PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   resolution VARCHAR(10) NOT NULL,
   stream_quality INT NOT NULL,
   motion_detection BOOLEAN NOT NULL,
-  esp32_cam_url VARCHAR(255) NOT NULL
+  esp32_cam_url VARCHAR(255) NOT NULL,
+  owner_id INT REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+  nombre VARCHAR(100) DEFAULT 'Mi ESP32-CAM'
 );
 
 -- Insertar configuración por defecto para la ESP32-CAM

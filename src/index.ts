@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import axios from 'axios';
 import path from 'path';
+import cors from 'cors';
 import { requestLogger } from './middlewares/logger.js';
 import { rateLimiter } from './middlewares/rateLimiter.js';
 import mainRouter from './routes/index.js';
@@ -23,6 +24,7 @@ const io = new Server(httpServer, {
 });
 
 // Middlewares globales
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(requestLogger);
 app.use(rateLimiter);

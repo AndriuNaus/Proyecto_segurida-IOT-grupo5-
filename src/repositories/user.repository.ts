@@ -13,6 +13,7 @@ export interface UserRow {
   direccion?: string;
   is_verified?: boolean;
   verification_token?: string;
+  can_view_camera?: boolean;
 }
 
 export const UserRepository = {
@@ -23,7 +24,7 @@ export const UserRepository = {
     try {
       const { data, error } = await supabase
         .from('usuario')
-        .select('correo, password, rol, is_verified, verification_token')
+        .select('correo, password, rol, is_verified, verification_token, can_view_camera')
         .eq('correo', username)
         .maybeSingle();
 
@@ -41,7 +42,8 @@ export const UserRepository = {
         primer_nombre: '',
         primer_apellido: '',
         is_verified: data.is_verified,
-        verification_token: data.verification_token
+        verification_token: data.verification_token,
+        can_view_camera: data.can_view_camera ?? false
       };
     } catch (err: any) {
       console.error('❌ Excepción al consultar usuario en Supabase:', err?.message || err);
@@ -56,7 +58,7 @@ export const UserRepository = {
     try {
       const { data, error } = await supabase
         .from('usuario')
-        .select('correo, password, rol, telefono, is_verified')
+        .select('correo, password, rol, telefono, is_verified, can_view_camera')
         .eq('telefono', phone)
         .maybeSingle();
 
@@ -74,7 +76,8 @@ export const UserRepository = {
         telefono: data.telefono,
         primer_nombre: '',
         primer_apellido: '',
-        is_verified: data.is_verified
+        is_verified: data.is_verified,
+        can_view_camera: data.can_view_camera ?? false
       };
     } catch (err: any) {
       console.error('❌ Excepción al consultar teléfono en Supabase:', err?.message || err);
@@ -132,5 +135,38 @@ export const UserRepository = {
     }
 
     return data && data.length > 0;
+  },
+
+  /**
+   * Obtiene todos los clientes (no admins)
+   */
+  async getAllClients(): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('usuario')
+      .select('id_usuario, correo, primer_nombre, primer_apellido, rol, can_view_camera')
+      .neq('rol', 'Admin')
+      .order('id_usuario', { ascending: true });
+
+    if (error) {
+      console.error('Error obteniendo clientes:', error.message);
+      return [];
+    }
+    return data || [];
+  },
+
+  /**
+   * Actualiza el permiso para ver la cámara
+   */
+  async updateCameraPermission(correo: string, can_view_camera: boolean): Promise<boolean> {
+    const { error } = await supabase
+      .from('usuario')
+      .update({ can_view_camera })
+      .eq('correo', correo);
+
+    if (error) {
+      console.error('Error actualizando permiso de cámara:', error.message);
+      return false;
+    }
+    return true;
   }
 };

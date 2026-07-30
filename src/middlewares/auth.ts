@@ -31,3 +31,14 @@ export function requireJwt(req: Request, res: Response, next: NextFunction) {
   (req as AuthenticatedRequest).user = claims;
   next();
 }
+
+export function requireRole(role: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user || user.role?.toLowerCase() !== role.toLowerCase()) {
+      res.status(403).json({ error: `Permisos insuficientes. Se requiere rol de ${role}.` });
+      return;
+    }
+    next();
+  };
+}

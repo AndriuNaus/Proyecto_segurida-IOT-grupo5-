@@ -130,8 +130,44 @@ export const alertsAPI = {
   }
 };
 
+/**
+ * APIs del Módulo de Usuarios (Admin)
+ */
+export const usersAPI = {
+  getClients: async (token) => {
+    return httpRequest('/users/clients', {
+      method: 'GET',
+      token
+    });
+  },
+
+  updateCameraAccess: async (token, username, can_view_camera) => {
+    return httpRequest(`/users/${username}/camera-access`, {
+      method: 'PATCH',
+      token,
+      body: { can_view_camera }
+    });
+  }
+};
+
+/**
+ * APIs del Módulo de Mascotas
+ */
+export const mascotasAPI = {
+  getAll: async (token) => {
+    return httpRequest('/mascotas', { method: 'GET', token });
+  },
+  create: async (token, mascotaData) => {
+    return httpRequest('/mascotas', { method: 'POST', token, body: mascotaData });
+  },
+  delete: async (token, id) => {
+    return httpRequest(`/mascotas/${id}`, { method: 'DELETE', token });
+  }
+};
+
 export default {
   auth: authAPI,
-  camera: cameraAPI,
-  alerts: alertsAPI
+  alerts: alertsAPI,
+  users: usersAPI,
+  mascotas: mascotasAPI
 };
