@@ -10,13 +10,7 @@ export const CameraController = {
    */
   async getStatus(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (req.user?.role !== 'admin') {
-        const dbUser = await UserRepository.findByUsername(req.user?.sub || '');
-        if (!dbUser || !dbUser.can_view_camera) {
-          res.status(403).json({ error: 'Tu cuenta está pendiente de autorización para ver la cámara' });
-          return;
-        }
-      }
+      // Autorización removida para permitir acceso como microservicio
       const statusData = CameraService.getCameraStatus(req.user);
       res.status(200).json(statusData);
     } catch (error) {
@@ -55,19 +49,7 @@ export const CameraController = {
    * Transmite el stream MJPEG directamente desde la ESP32-CAM al cliente.
    */
   async stream(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (req.user?.role !== 'admin') {
-        const dbUser = await UserRepository.findByUsername(req.user?.sub || '');
-        if (!dbUser || !dbUser.can_view_camera) {
-          res.status(403).json({ error: 'Tu cuenta está pendiente de autorización para ver la cámara' });
-          return;
-        }
-      }
-    } catch (err) {
-      res.status(500).json({ error: 'Error verificando permisos' });
-      return;
-    }
-
+    // Autorización removida para permitir acceso como microservicio (Vercel)
     res.setHeader('Content-Type', 'multipart/x-mixed-replace;boundary=123456789000000000000987654321');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0');
     res.setHeader('Pragma', 'no-cache');
