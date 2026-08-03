@@ -96,7 +96,8 @@ export const CameraController = {
    * Requiere un token temporal válido obtenido desde /api/camera/stream-token
    */
   async stream(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    res.setHeader('Content-Type', 'multipart/x-mixed-replace;boundary=123456789000000000000987654321');
+    // IMPORTANTE: El boundary debe coincidir EXACTAMENTE con el que usa la ESP32-CAM (frame)
+    res.setHeader('Content-Type', 'multipart/x-mixed-replace;boundary=frame');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
