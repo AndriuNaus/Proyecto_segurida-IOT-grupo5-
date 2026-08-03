@@ -35,6 +35,7 @@ Ubicado en `src/`.
 ### C. Base de Datos (Supabase PostgreSQL)
 *   **Problemas Resueltos:** Los usuarios que ya existían y los nuevos no podían iniciar sesión (Error 401 Unauthorized) porque la tabla `usuario` carecía de las columnas de la nueva versión del frontend.
 *   **Solución Aplicada:** Se añadieron a la base de datos las columnas: `is_verified`, `primer_nombre`, `segundo_nombre`, `primer_apellido`, `segundo_apellido` y `celular`. Ya funciona al 100%.
+*   **Seguridad y Supabase del Compañero:** Se agregó en `src/config/supabase.ts` un cliente adicional (`companionSupabase`) que permite al backend validar los tokens de sesión de la base de datos de Supabase del frontend del compañero. Con esto se asegura el endpoint del stream de video.
 
 ### D. Infraestructura y DevOps
 *   **`dockerfile`:** Tiene un build *multi-stage*. La Etapa 1 compila el frontend de Vite y la Etapa 2 lo empaqueta junto con el backend de Node.js.
@@ -60,7 +61,9 @@ SUPABASE_URL=... (las claves de la DB)
 
 1. **Mejorar la Detección IA:** Cambiar en el frontend el uso de `efficientdet_lite0` por `efficientdet_lite2` para mayor precisión.
 2. **Sistema de Alertas (Telegram):** 
-   - Crear endpoint `/api/alerts` en Node.
-   - Conectar un bot de Telegram.
-   - Enviar POST desde React hacia Node cuando la IA tenga >70% de confianza detectando una persona.
-3. **Botones de UI:** Conectar los botones visuales (flash y calidad de video) con comandos HTTP reales a la ESP32.
+   - Endpoint `/api/alerts` conectado con éxito. 
+   - Notifica por Telegram y ahora envía foto de la cámara **siempre** que el frontend adjunte el `imagen_base64`, sin importar si el modo del hogar es "Ausente" o "En casa".
+3. **Seguridad del Stream de Video:**
+   - La ruta `/api/camera/stream` ya está protegida.
+   - El archivo `.mdplanes/instrucciones_para_ia_companero.md` contiene el código exacto que el frontend debe implementar para pedir un token temporal de 10 min a `/api/camera/stream-token` usando la sesión de Supabase Auth.
+4. **Botones de UI:** Conectar los botones visuales (flash y calidad de video) con comandos HTTP reales a la ESP32.

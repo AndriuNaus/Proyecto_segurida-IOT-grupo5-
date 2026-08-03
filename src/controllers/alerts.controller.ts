@@ -52,11 +52,11 @@ export const AlertsController = {
       // 3. Enviar a Telegram
       let telegramEnviado = false;
 
-      if (esCritico && imagen_base64) {
-        // Modo Ausente + hay imagen → enviar foto con caption
+      if (imagen_base64) {
+        // Si hay imagen → enviar foto con caption (sin importar si es crítico o no)
         telegramEnviado = await TelegramService.enviarFoto(imagen_base64, telegramMensaje);
       } else {
-        // Modo En Casa o sin imagen → solo texto
+        // Sin imagen → solo texto
         telegramEnviado = await TelegramService.enviarMensaje(telegramMensaje);
       }
 

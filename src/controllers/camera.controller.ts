@@ -1,8 +1,10 @@
-import type { Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/auth.js';
 import { ConfigureCameraSchema } from '../schemas/camera.schema.js';
 import { CameraService, streamClients } from '../services/camera.service.js';
 import { UserRepository } from '../repositories/user.repository.js';
+import { companionSupabase } from '../config/supabase.js';
+import { AuthService } from '../services/auth.service.js';
 
 export const CameraController = {
   /**
@@ -46,10 +48,54 @@ export const CameraController = {
   },
 
   /**
+   * Valida el token de Supabase del compañero y entrega un token temporal
+   * de 10 minutos para acceder al stream MJPEG desde el frontend.
+   */
+  async getStreamToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!companionSupabase) {
+        res.status(503).json({
+          error: 'Servicio no disponible. Configura COMPANION_SUPABASE_URL y COMPANION_SUPABASE_ANON_KEY en el .env'
+        });
+        return;
+      }
+
+      const supabaseToken = req.headers['authorization']?.replace('Bearer ', '') ||
+                            (req.body as any)?.supabaseToken as string | undefined;
+
+      if (!supabaseToken) {
+        res.status(401).json({ error: 'Se requiere el token de Supabase del compañero.' });
+        return;
+      }
+
+      // Verificar el token contra el Supabase del compañero
+      const { data, error } = await companionSupabase.auth.getUser(supabaseToken);
+
+      if (error || !data?.user) {
+        res.status(401).json({ error: 'Token de Supabase inválido o expirado.' });
+        return;
+      }
+
+      // Generar token temporal de 10 minutos para el stream
+      const streamToken = AuthService.generateStreamToken(
+        data.user.email ?? data.user.id
+      );
+
+      res.status(200).json({
+        streamToken,
+        expiresIn: 600,
+        message: 'Token válido por 10 minutos. Úsalo como ?token=<streamToken> en el stream.'
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
    * Transmite el stream MJPEG directamente desde la ESP32-CAM al cliente.
+   * Requiere un token temporal válido obtenido desde /api/camera/stream-token
    */
   async stream(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    // Autorización removida para permitir acceso como microservicio (Vercel)
     res.setHeader('Content-Type', 'multipart/x-mixed-replace;boundary=123456789000000000000987654321');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0');
     res.setHeader('Pragma', 'no-cache');

@@ -49,6 +49,29 @@ export const AuthService = {
   },
 
   /**
+   * Genera un token JWT de corta duración (10 minutos) para acceder al stream de video.
+   * El frontend del compañero lo solicita con su token de Supabase y lo usa en la URL del stream.
+   */
+  generateStreamToken(username: string): string {
+    const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const payload = base64url(JSON.stringify({
+      sub: username,
+      iss: 'https://auth.iot-seguridad.local',
+      aud: 'https://api.iot-seguridad.local/camera/stream',
+      role: 'viewer',           // Rol mínimo, solo para ver
+      scope: 'stream',          // Scope limitado al stream
+      exp: Math.floor(Date.now() / 1000) + 600, // Solo 10 minutos
+      jti: uuidv4()
+    }));
+
+    const sig = createHmac('sha256', JWT_SECRET)
+      .update(`${header}.${payload}`)
+      .digest('base64url');
+
+    return `${header}.${payload}.${sig}`;
+  },
+
+  /**
    * Autentica a un usuario y retorna su JWT si las credenciales son válidas.
    */
   async login(username: string, password: string): Promise<string | null> {

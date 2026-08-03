@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
+// --- Cliente Supabase propio (para persistencia de datos) ---
 const supabaseUrl = process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'placeholder-key';
 
@@ -13,6 +14,21 @@ export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     persistSession: false
   }
 });
+
+// --- Cliente Supabase del compañero (SOLO para verificar tokens de su auth) ---
+// Sus credenciales son públicas por diseño (se usan en el frontend sin problema)
+const companionUrl = process.env.COMPANION_SUPABASE_URL || '';
+const companionAnonKey = process.env.COMPANION_SUPABASE_ANON_KEY || '';
+
+export const companionSupabase = companionUrl && companionAnonKey
+  ? createClient(companionUrl, companionAnonKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    })
+  : null;
+
+if (!companionUrl || !companionAnonKey) {
+  console.warn('⚠️ COMPANION_SUPABASE_URL o COMPANION_SUPABASE_ANON_KEY no configurados. El endpoint /api/camera/stream-token no estará disponible.');
+}
 
 export async function initializeDatabase() {
   console.log('🔌 Conectando a Supabase PostgreSQL...');
