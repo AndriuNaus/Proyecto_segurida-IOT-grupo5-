@@ -111,7 +111,8 @@ export const CameraController = {
   },
 
   async stream2(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    res.setHeader('Content-Type', 'multipart/x-mixed-replace;boundary=frame');
+    // La cámara 2 usa el boundary estándar del ejemplo de Arduino
+    res.setHeader('Content-Type', 'multipart/x-mixed-replace;boundary=123456789000000000000987654321');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
