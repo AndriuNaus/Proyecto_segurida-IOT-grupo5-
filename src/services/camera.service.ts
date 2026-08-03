@@ -4,6 +4,7 @@ import { CameraRepository, type CameraConfig } from '../repositories/camera.repo
 
 // Lista de clientes HTTP activos viendo el stream en vivo (compartido para evitar múltiples conexiones a la ESP32)
 export const streamClients = new Set<Response>();
+export const streamClients2 = new Set<Response>();
 
 export function closeAllStreamClients() {
   for (const client of streamClients) {
@@ -14,7 +15,16 @@ export function closeAllStreamClients() {
   streamClients.clear();
 }
 
-// Estado simulado en memoria para la cámara ESP32-CAM (sincronizado con la base de datos)
+export function closeAllStreamClients2() {
+  for (const client of streamClients2) {
+    try {
+      client.end();
+    } catch (err) {}
+  }
+  streamClients2.clear();
+}
+
+// Estado simulado en memoria para la cámara ESP32-CAM 1
 export const cameraState = {
   isConnected: false,
   lastActivity: new Date(),
@@ -22,7 +32,19 @@ export const cameraState = {
     resolution: 'VGA',
     streamQuality: 30, // Calidad del stream JPEG (10-63, menor es mejor calidad en ESP32-CAM)
     motionDetection: false,
-    esp32CamUrl: process.env.ESP32_CAM_URL ?? 'http://192.168.1.100:81/stream'
+    esp32CamUrl: process.env.ESP32_CAM_URL ?? 'http://localhost:8081/stream'
+  }
+};
+
+// Estado simulado en memoria para la cámara ESP32-CAM 2
+export const cameraState2 = {
+  isConnected: false,
+  lastActivity: new Date(),
+  config: {
+    resolution: 'VGA',
+    streamQuality: 30,
+    motionDetection: false,
+    esp32CamUrl: process.env.ESP32_CAM_URL_2 ?? 'http://localhost:8082/stream'
   }
 };
 

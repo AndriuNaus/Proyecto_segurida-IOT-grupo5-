@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/auth.js';
 import { ConfigureCameraSchema } from '../schemas/camera.schema.js';
-import { CameraService, streamClients } from '../services/camera.service.js';
+import { CameraService, streamClients, streamClients2 } from '../services/camera.service.js';
 import { UserRepository } from '../repositories/user.repository.js';
 import { companionSupabase } from '../config/supabase.js';
 import { AuthService } from '../services/auth.service.js';
@@ -107,6 +107,19 @@ export const CameraController = {
 
     req.on('close', () => {
       streamClients.delete(res);
+    });
+  },
+
+  async stream2(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    res.setHeader('Content-Type', 'multipart/x-mixed-replace;boundary=frame');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    streamClients2.add(res);
+
+    req.on('close', () => {
+      streamClients2.delete(res);
     });
   }
 };

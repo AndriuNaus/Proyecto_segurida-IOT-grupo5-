@@ -9,7 +9,7 @@ import { requestLogger } from './middlewares/logger.js';
 import { rateLimiter } from './middlewares/rateLimiter.js';
 import mainRouter from './routes/index.js';
 import { initializeDatabase, supabase } from './config/supabase.js';
-import { cameraState, CameraService, streamClients, closeAllStreamClients } from './services/camera.service.js';
+import { cameraState, cameraState2, CameraService, streamClients, streamClients2, closeAllStreamClients, closeAllStreamClients2 } from './services/camera.service.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { EventoRepository } from './repositories/evento.repository.js';
 import { EvidenciaRepository } from './repositories/evidencia.repository.js';
@@ -136,6 +136,7 @@ app.use(errorHandler);
 
 // Proxy de video ESP32-CAM a Socket.io (Modo Pull)
 let streamAbortController: AbortController | null = null;
+let streamAbortController2: AbortController | null = null;
 
 async function iniciarProxyVideo() {
   const url = cameraState.config.esp32CamUrl;
@@ -154,7 +155,7 @@ async function iniciarProxyVideo() {
   }
   streamAbortController = new AbortController();
 
-  console.log(`Intentando conectar al stream de la ESP32-CAM en: ${url}`);
+  console.log(`Intentando conectar al stream de la ESP32-CAM 1 en: ${url}`);
 
   try {
     const response = await axios({
@@ -165,7 +166,7 @@ async function iniciarProxyVideo() {
       timeout: 10000
     });
 
-    console.log('¡Conexión establecida con la ESP32-CAM!');
+    console.log('¡Conexión establecida con la ESP32-CAM 1!');
     cameraState.isConnected = true;
     cameraState.lastActivity = new Date();
 
@@ -183,14 +184,14 @@ async function iniciarProxyVideo() {
     });
 
     response.data.on('close', () => {
-      console.log('Stream de ESP32-CAM cerrado.');
+      console.log('Stream de ESP32-CAM 1 cerrado.');
       cameraState.isConnected = false;
       closeAllStreamClients();
       intentarReconexion();
     });
 
     response.data.on('error', (err: Error) => {
-      console.error('Error en stream de datos de ESP32-CAM:', err.message);
+      console.error('Error en stream de datos de ESP32-CAM 1:', err.message);
       cameraState.isConnected = false;
       closeAllStreamClients();
       intentarReconexion();
@@ -198,14 +199,82 @@ async function iniciarProxyVideo() {
 
   } catch (error: any) {
     if (axios.isCancel(error)) {
-      console.log('Conexión de stream cancelada por cambio de configuración.');
+      console.log('Conexión de stream 1 cancelada por cambio de configuración.');
       closeAllStreamClients();
       return;
     }
-    console.error('Error conectando con la ESP32-CAM:', error.message);
+    console.error('Error conectando con la ESP32-CAM 1:', error.message);
     cameraState.isConnected = false;
     closeAllStreamClients();
     intentarReconexion();
+  }
+}
+
+async function iniciarProxyVideo2() {
+  const url = cameraState2.config.esp32CamUrl;
+  
+  if (!url || url.toLowerCase() === 'push' || url.toLowerCase() === 'none') {
+    if (streamAbortController2) {
+      streamAbortController2.abort();
+      streamAbortController2 = null;
+    }
+    return;
+  }
+
+  if (streamAbortController2) {
+    streamAbortController2.abort();
+  }
+  streamAbortController2 = new AbortController();
+
+  console.log(`Intentando conectar al stream de la ESP32-CAM 2 en: ${url}`);
+
+  try {
+    const response = await axios({
+      method: 'get',
+      url: url,
+      responseType: 'stream',
+      signal: streamAbortController2.signal,
+      timeout: 10000
+    });
+
+    console.log('¡Conexión establecida con la ESP32-CAM 2!');
+    cameraState2.isConnected = true;
+    cameraState2.lastActivity = new Date();
+
+    response.data.on('data', (chunk: Buffer) => {
+      for (const client of streamClients2) {
+        try {
+          client.write(chunk);
+        } catch (err) {
+          streamClients2.delete(client);
+        }
+      }
+    });
+
+    response.data.on('close', () => {
+      console.log('Stream de ESP32-CAM 2 cerrado.');
+      cameraState2.isConnected = false;
+      closeAllStreamClients2();
+      intentarReconexion2();
+    });
+
+    response.data.on('error', (err: Error) => {
+      console.error('Error en stream de datos de ESP32-CAM 2:', err.message);
+      cameraState2.isConnected = false;
+      closeAllStreamClients2();
+      intentarReconexion2();
+    });
+
+  } catch (error: any) {
+    if (axios.isCancel(error)) {
+      console.log('Conexión de stream 2 cancelada por cambio de configuración.');
+      closeAllStreamClients2();
+      return;
+    }
+    console.error('Error conectando con la ESP32-CAM 2:', error.message);
+    cameraState2.isConnected = false;
+    closeAllStreamClients2();
+    intentarReconexion2();
   }
 }
 
@@ -215,15 +284,23 @@ function intentarReconexion() {
   }, 5000);
 }
 
+function intentarReconexion2() {
+  setTimeout(() => {
+    iniciarProxyVideo2();
+  }, 5000);
+}
+
 // Inicializar Supabase y luego arrancar servicios
 initializeDatabase()
   .then(async () => {
     await CameraService.loadCameraConfigFromDb();
     iniciarProxyVideo();
+    iniciarProxyVideo2();
   })
   .catch((err) => {
     console.error('Error al inicializar la base de datos Supabase:', err.message);
     iniciarProxyVideo();
+    iniciarProxyVideo2();
   });
 
 // Evento Socket.io para clientes de la interfaz

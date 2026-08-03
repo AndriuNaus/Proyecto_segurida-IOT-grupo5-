@@ -15,8 +15,11 @@ router.post('/configure', CameraController.configure);
 // temporal de 10 minutos para abrir el stream
 router.post('/stream-token', CameraController.getStreamToken);
 
-// GET /api/camera/stream  ← Ahora PROTEGIDO con JWT
-// Requiere ?token=<streamToken> obtenido desde /stream-token
+// 3. Obtener el stream de video de la cámara principal (PULL) - AHORA PROTEGIDO
+// Validará el JWT temporal enviado por query: ?token=ey...
 router.get('/stream', requireJwt, CameraController.stream);
+
+// 4. Obtener el stream de video de la cámara 2 (PULL) - AHORA PROTEGIDO
+router.get('/stream2', requireJwt, CameraController.stream2);
 
 export default router;
