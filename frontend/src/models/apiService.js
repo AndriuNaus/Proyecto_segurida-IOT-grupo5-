@@ -4,7 +4,7 @@
  * Encapsula todas las peticiones fetch hacia los endpoints REST del backend Express.
  */
 
-const BASE_URL = '/api';
+const BASE_URL = 'https://iot-security.pro/api';
 
 /**
  * Helper para realizar peticiones HTTP de forma estandarizada y manejar respuestas/errores.
@@ -111,6 +111,14 @@ export const cameraAPI = {
   getStreamUrl: (token) => {
     if (!token) return '';
     return `${BASE_URL}/camera/stream?token=${encodeURIComponent(token)}`;
+  },
+
+  /**
+   * Genera la URL para consumir el stream MJPEG de la Cámara 2.
+   */
+  getStreamUrl2: (token) => {
+    if (!token) return '';
+    return `${BASE_URL}/camera/stream2?token=${encodeURIComponent(token)}`;
   }
 };
 

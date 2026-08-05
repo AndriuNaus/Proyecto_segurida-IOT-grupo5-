@@ -41,7 +41,7 @@ function LiveStreamCamera() {
         }
 
         // 2. Pedir un token temporal a la API de Anderson usando tu token de Supabase
-        const response = await fetch('https://api.iot-security.pro/api/camera/stream-token', {
+        const response = await fetch('https://iot-security.pro/api/camera/stream-token', {
           method: 'POST',
           headers: {
             // Mandamos tu token de Supabase en el Authorization
@@ -57,7 +57,7 @@ function LiveStreamCamera() {
         const data = await response.json();
         
         // 3. Establecer la URL del stream con el token
-        const finalUrl = `https://api.iot-security.pro/api/camera/stream?token=${data.streamToken}`;
+        const finalUrl = `https://iot-security.pro/api/camera/stream?token=${data.streamToken}`;
         setStreamUrl(finalUrl);
 
       } catch (err) {

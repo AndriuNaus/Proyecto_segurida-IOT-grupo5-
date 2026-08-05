@@ -12,7 +12,6 @@ El servidor de AWS es un servicio dedicado de hardware que recibe el tráfico de
 Necesito que analices el código actual de este repositorio y me ayudes a integrar la visualización de esta cámara y un modelo local de IA que avise al AWS cuando vea una persona.
 
 Ejecuta los siguientes pasos de forma sistemática:
-
 ### 1. Dependencias
 Genera el comando para instalar `@mediapipe/tasks-vision`.
 

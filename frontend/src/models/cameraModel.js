@@ -31,6 +31,13 @@ export const cameraModel = {
    */
   getStreamUrl: (token) => {
     return cameraAPI.getStreamUrl(token);
+  },
+
+  /**
+   * Construye y retorna la URL del endpoint del stream de la Cámara 2.
+   */
+  getStreamUrl2: (token) => {
+    return cameraAPI.getStreamUrl2(token);
   }
 };
 

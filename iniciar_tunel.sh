@@ -10,8 +10,9 @@ autossh -M 0 -N -f \
   -o "ServerAliveCountMax=3" \
   -o "ExitOnForwardFailure=yes" \
   -i /home/anderson/Descargas/key-verda.pem \
-  -R 8081:10.219.80.211:80 \
+  -R 8081:192.168.4.1:80 \
   ubuntu@3.138.214.6
 
 echo "¡Túnel enviado al fondo (background) exitosamente!"
 echo "AWS ahora tiene acceso a la cámara en http://localhost:8081"
+

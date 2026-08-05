@@ -24,6 +24,7 @@ function LiveStream() {
   const [loading, setLoading] = useState(true);
   const [cameraConnected, setCameraConnected] = useState(false);
   const [streamUrl, setStreamUrl] = useState('');
+  const [streamUrl2, setStreamUrl2] = useState('');
   const [unauthorizedError, setUnauthorizedError] = useState(null);
 
   // Estados para la IA y la cámara de PC
@@ -36,6 +37,7 @@ function LiveStream() {
   // Refs de video, imagen y canvas
   const videoRef = useRef(null);
   const imageRef = useRef(null);
+  const imageRef2 = useRef(null);
   const canvasRef = useRef(null);
   const detectorRef = useRef(null);
   const loopActiveRef = useRef(false);
@@ -52,6 +54,7 @@ function LiveStream() {
     }
     setUser(sessionUser);
     setStreamUrl(cameraModel.getStreamUrl(sessionUser.token));
+    setStreamUrl2(cameraModel.getStreamUrl2(sessionUser.token));
     fetchCameraStatus(sessionUser.token);
   }, [navigate]);
 
@@ -527,23 +530,44 @@ function LiveStream() {
           {/* VISTA 2: ESP32-CAM */}
           {!useWebcam && (
             cameraConnected ? (
-              <img 
-                ref={imageRef}
-                src={streamUrl} 
-                alt="ESP32 Live Stream" 
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                onError={(e) => {
-                  const target = e.target;
-                  target.onerror = null;
-                  console.warn("Error en el stream de la imagen, reintentando en 3 segundos...");
-                  setTimeout(() => {
-                    target.onerror = (evt) => {
-                      evt.target.onerror = null;
-                    };
-                    target.src = `${streamUrl}&t=${Date.now()}`;
-                  }, 3000);
-                }}
-              />
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, width: '100%', height: '100%', gap: 2 }}>
+                <Box sx={{ flex: 1, position: 'relative' }}>
+                  <img 
+                    ref={imageRef}
+                    src={streamUrl} 
+                    crossOrigin="anonymous"
+                    alt="ESP32 Cámara 1" 
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    onError={(e) => {
+                      const target = e.target;
+                      target.onerror = null;
+                      setTimeout(() => {
+                        target.onerror = (evt) => { evt.target.onerror = null; };
+                        target.src = `${streamUrl}&t=${Date.now()}`;
+                      }, 3000);
+                    }}
+                  />
+                  <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, left: 8, bgcolor: 'rgba(0,0,0,0.6)', color: 'white', px: 1, borderRadius: 1 }}>Cámara 1</Typography>
+                </Box>
+                <Box sx={{ flex: 1, position: 'relative' }}>
+                  <img 
+                    ref={imageRef2}
+                    src={streamUrl2} 
+                    crossOrigin="anonymous"
+                    alt="ESP32 Cámara 2" 
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    onError={(e) => {
+                      const target = e.target;
+                      target.onerror = null;
+                      setTimeout(() => {
+                        target.onerror = (evt) => { evt.target.onerror = null; };
+                        target.src = `${streamUrl2}&t=${Date.now()}`;
+                      }, 3000);
+                    }}
+                  />
+                  <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, left: 8, bgcolor: 'rgba(0,0,0,0.6)', color: 'white', px: 1, borderRadius: 1 }}>Cámara 2</Typography>
+                </Box>
+              </Box>
             ) : (
               <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <VideocamOff sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
