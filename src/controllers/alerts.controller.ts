@@ -91,5 +91,27 @@ export const AlertsController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  /**
+   * Agrega un nuevo Chat ID de Telegram para multidifusión
+   */
+  async addTelegramUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { chatId } = req.body;
+      if (!chatId) {
+        res.status(400).json({ error: 'El chatId es requerido' });
+        return;
+      }
+
+      const success = TelegramService.agregarChatId(chatId.toString());
+      if (success) {
+        res.status(200).json({ success: true, message: 'Chat ID agregado exitosamente' });
+      } else {
+        res.status(500).json({ error: 'No se pudo guardar el Chat ID' });
+      }
+    } catch (error) {
+      next(error);
+    }
   }
 };
