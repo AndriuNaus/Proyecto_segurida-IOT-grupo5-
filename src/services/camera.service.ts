@@ -31,6 +31,7 @@ export const cameraState = {
   config: {
     resolution: 'VGA',
     streamQuality: 30, // Calidad del stream JPEG (10-63, menor es mejor calidad en ESP32-CAM)
+    motionDetection: false,
     esp32CamUrl: process.env.ESP32_CAM_URL ?? 'http://172.17.0.1:8081/stream'
   }
 };
