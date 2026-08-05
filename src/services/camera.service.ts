@@ -56,11 +56,11 @@ export const CameraService = {
     try {
       const config = await CameraRepository.getConfig();
       if (config) {
-        const envUrl = process.env.ESP32_CAM_URL;
-        if (envUrl && config.esp32CamUrl !== envUrl) {
-          config.esp32CamUrl = envUrl;
+        const defaultUrl1 = process.env.ESP32_CAM_URL ?? 'http://172.17.0.1:8081/stream';
+        if (config.esp32CamUrl !== defaultUrl1) {
+          config.esp32CamUrl = defaultUrl1;
           await CameraRepository.updateConfig(config);
-          console.log(`URL de la cámara actualizada en la Base de Datos con el valor del .env: ${envUrl}`);
+          console.log(`URL de la cámara actualizada en la Base de Datos a: ${defaultUrl1}`);
         }
         cameraState.config = config;
         console.log("Configuración de cámara cargada desde la base de datos:", cameraState.config);
